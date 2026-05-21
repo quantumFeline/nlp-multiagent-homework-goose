@@ -9,7 +9,8 @@ from goose_game.models import Direction
 
 PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME. "
                          "Your task so to coordinate the geese so that all of them reach the destination and honk when standing on *.\n"
-                "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action. ")
+                         "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action.\n"
+                         "Once a goose reports reaching the goal, instruct it to HONK and stay put.\n")
 
 PLANNER_PROMPT = ("The goal of this level is the following:\n"
                   "{}\n"
@@ -29,14 +30,16 @@ GOOSE_PROMPT = ("You receive a message from the PLANNER that tells you that your
                 "The map legend:\n"
                 "# wall\n"
                 ". empty square\n"
-                "* goal\n"
+                "* goal (also shown when YOU are standing on it)\n"
                 "@ button\n"
                 "`$` closed door\n"
                 "`/` open door\n"
                 "`?` unknown\n"
                 "`X` goose 1\n"
                 "`Y` goose 2\n"
-                "Please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
+                "If the map shows * at your current position (i.e., you cannot see your own X/Y symbol), you are standing on the goal. "
+                "Your correct action is to HONK.\n"
+                "Otherwise, please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
 
 GOOSE_OBS_SYSTEM_PROMPT = "You are a GOOSE in a GOOSE game. You perceive and pass useful information to the planner.\n"
 GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
@@ -46,7 +49,7 @@ GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "The map legend:\n"
                     "# wall\n"
                     ". empty square\n"
-                    "* goal\n"
+                    "* goal (also shown when YOU are standing on it)\n"
                     "@ button\n"
                     "`$` closed door\n"
                     "`/` open door\n"
@@ -88,24 +91,30 @@ class GooseAgentImpl(GooseAgent):
         self._append_to_chat(f"Planner message: {message.description}")
         #event = self._env.honk(count=1)
 
-        answer = get_model_answer(self._client,
-                                  self._used_model,
-                                  GOOSE_SYSTEM_PROMPT,
-                                  GOOSE_PROMPT.format(message.description, self._env.describe_state()))
-        self._append_to_chat("Goose move: " + answer)
-        answer = answer.lower()
-        if "up" in answer:
-            self._env.move(Direction.UP)
-        elif "down" in answer:
-            self._env.move(Direction.DOWN)
-        elif "left" in answer:
-            self._env.move(Direction.LEFT)
-        elif "right" in answer:
-            self._env.move(Direction.RIGHT)
-        elif "honk" in answer:
-            self._env.honk(1)
-        else:
-            raise RuntimeError("Bad Gemma")
+        for attempt in range(3):
+            answer = get_model_answer(self._client,
+                                      self._used_model,
+                                      GOOSE_SYSTEM_PROMPT,
+                                      GOOSE_PROMPT.format(message.description, self._env.describe_state()))
+            self._append_to_chat("Goose move: " + answer)
+            answer = answer.lower()
+            if "up" in answer:
+                self._env.move(Direction.UP)
+                break
+            elif "down" in answer:
+                self._env.move(Direction.DOWN)
+                break
+            elif "left" in answer:
+                self._env.move(Direction.LEFT)
+                break
+            elif "right" in answer:
+                self._env.move(Direction.RIGHT)
+                break
+            elif "honk" in answer:
+                self._env.honk(1)
+                break
+            elif attempt == 2:
+                raise RuntimeError("Bad Gemma")
 
         # positions = self._env.visible_goose_positions()
         # self_state = self._env.describe_state()
