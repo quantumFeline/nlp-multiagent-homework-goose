@@ -1,36 +1,82 @@
 import time
 
+import openai
 from openai import OpenAI
 
 from agents.base import ChatCallback, GooseAgent, GooseAgentMessage, GooseAgentResult, PlannerAgent
 from goose_game.environment import GooseEnvironment, PlannerEnvironment
 from goose_game.models import Direction
 
-PLANNER_PROMPT_START = ("You are a PLANNER in a GOOSE GAME. Your task so to coordinate the geese so that all of them reach X and honk when standing on X."
-                "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action."
-                "The following is the description of the game state as visible by one of the geese."
-                "The parts of the labyrinth the goose is unaware of are marked with X.\n")
-PLANNER_PROMPT_END = "Please choose your GOOSE's next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n"
+PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME. "
+                         "Your task so to coordinate the geese so that all of them reach the destination and honk when standing on *.\n"
+                "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action. ")
 
-GOOSE_PROMPT_START = ("You are a GOOSE in a GOOSE game. Your task is to obey the PLANNER commands."
-                      "You receive a message from the PLANNER that tells you the following:")
-GOOSE_PROMPT_END = "Please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n"
+PLANNER_PROMPT = ("The goal of this level is the following:\n"
+                  "{}\n"
+                  "The following is the description of the game state as visible by one of the geese.\n"
+                  "{}\n"
+                  "Please choose the next goal for GOOSE {} and describe it in a single sentence. Example valid commands:\n"
+                      "\"Press the button approximately north of you.\"\n"
+                      "\"Find and reach the goal in the southeast corner.\"\n"
+                      "\"Honk and wait.\"\n")
 
-def get_model_answer(client, model, prompt):
+GOOSE_SYSTEM_PROMPT = ("You are a GOOSE in a GOOSE game. Your task is to obey the PLANNER commands. "
+                       "The commands are high-level, and may require multiple moves. You need to figure out your next move only.\n")
+GOOSE_PROMPT = ("You receive a message from the PLANNER that tells you that your next goal is the following:\n"
+                "{}\n"
+                "The game state you are currently observing is the following:\n"
+                "{}\n"
+                "The map legend:\n"
+                "# wall\n"
+                ". empty square\n"
+                "* goal\n"
+                "@ button\n"
+                "`$` closed door\n"
+                "`/` open door\n"
+                "`?` unknown\n"
+                "`X` goose 1\n"
+                "`Y` goose 2\n"
+                "Please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
+
+GOOSE_OBS_SYSTEM_PROMPT = "You are a GOOSE in a GOOSE game. You perceive and pass useful information to the planner.\n"
+GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
+                    "{}"
+                    "and the visible goose positions are:\n"
+                    "{}"
+                    "The map legend:\n"
+                    "# wall\n"
+                    ". empty square\n"
+                    "* goal\n"
+                    "@ button\n"
+                    "`$` closed door\n"
+                    "`/` open door\n"
+                    "`?` unknown\n"
+                    "`X` goose 1\n"
+                    "`Y` goose 2\n"
+                    "Please pass the key information about your observations to the planner in an accessible form.\n"
+                    "Example descriptions:\n"
+                    "\"There is a wall to the east of me and a button northeast.\"\n"
+                    "\"There is an open door directly north and another goose west.\"\n"
+                    "\"There is a wall west of me and a wall south of me. There is the destination east of me.\n")
+
+def get_model_answer(client, model, system_prompt, user_prompt):
     answer = None
     while answer is None:
-        model_response = client.responses.create(
-            model=model,
-            input=prompt
-        )
-
-        if model_response.error is not None:
-            if model_response.error.code == 429:  # rate limit exceeded
-                time.sleep(60)
-            else:
-                raise Exception(model_response.error.code)
-        else:
-            answer = model_response.output[0].content[0].text
+        # model_response = client.responses.create(
+        #     model=model,
+        #     input=prompt
+        # )
+        try:
+            model_response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            answer = model_response.choices[0].message.content
+        except openai.RateLimitError:
+            time.sleep(60)
     return answer
 
 class GooseAgentImpl(GooseAgent):
@@ -44,27 +90,33 @@ class GooseAgentImpl(GooseAgent):
 
         answer = get_model_answer(self._client,
                                   self._used_model,
-                                  PLANNER_PROMPT_START + message.description + PLANNER_PROMPT_END)
-
-        if answer == "UP":
+                                  GOOSE_SYSTEM_PROMPT,
+                                  GOOSE_PROMPT.format(message.description, self._env.describe_state()))
+        self._append_to_chat("Goose move: " + answer)
+        answer = answer.lower()
+        if "up" in answer:
             self._env.move(Direction.UP)
-        elif answer == "DOWN":
+        elif "down" in answer:
             self._env.move(Direction.DOWN)
-        elif answer == "LEFT":
+        elif "left" in answer:
             self._env.move(Direction.LEFT)
-        elif answer == "RIGHT":
+        elif "right" in answer:
             self._env.move(Direction.RIGHT)
-        elif answer == "HONK":
+        elif "honk" in answer:
             self._env.honk(1)
         else:
             raise RuntimeError("Bad Gemma")
 
-        positions = self._env.visible_goose_positions()
-        self_state = self._env.describe_state()
-        result = f"Visible positions: {positions}, self-state: {self_state}"
+        # positions = self._env.visible_goose_positions()
+        # self_state = self._env.describe_state()
+        # result = f"Visible positions: {positions}, self-state: {self_state}"
+        goose_report = get_model_answer(self._client,
+                                        self._used_model,
+                                        GOOSE_OBS_SYSTEM_PROMPT,
+                                        GOOSE_OBS_PROMPT.format(self._env.describe_state(), self._env.visible_goose_positions()))
 
-        self._append_to_chat(f"GooseAgent answer: {result}")
-        return GooseAgentResult(output=result)
+        self._append_to_chat(f"GooseAgent answer: {goose_report}")
+        return GooseAgentResult(output=goose_report)
 
 
 class PlannerAgentImpl(PlannerAgent):
@@ -82,12 +134,13 @@ class PlannerAgentImpl(PlannerAgent):
     def step(self) -> None:
         self._append_to_chat("Planner step executed.")
 
-        result = GooseAgentResult(output="[THE GAME IS NOT INITIALIZED YET. PLEASE HONK POLITELY]")
+        result = GooseAgentResult(output="No reports yet.")
         for goose_id, goose in sorted(self._agents.items()):
 
             answer = get_model_answer(self._client,
                                       self._used_model,
-                                      PLANNER_PROMPT_START + result.output + PLANNER_PROMPT_END)
+                                      PLANNER_SYSTEM_PROMPT,
+                                      PLANNER_PROMPT.format(self._env.task_description, result.output, goose_id))
 
             task = GooseAgentMessage(description=answer)#f"{goose_id}, honk now.")
             self._append_to_chat(f"Calling {goose_id}.")
