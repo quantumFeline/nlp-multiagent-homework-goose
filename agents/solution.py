@@ -1,4 +1,5 @@
 import time
+import traceback
 
 import openai
 from openai import OpenAI
@@ -12,20 +13,22 @@ PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME. "
                          "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action.\n"
                          "Once a goose reports reaching the goal, instruct it to HONK and stay put.\n")
 
-PLANNER_PROMPT = ("The goal of this level is the following:\n"
+PLANNER_PROMPT = ("Previous goose reports were the following:\n"
+                  "{}"
+                  "The goal of this level is the following:\n"
                   "{}\n"
                   "The following is the description of the game state as visible by one of the geese.\n"
                   "{}\n"
-                  "Please choose the next goal for GOOSE {} and describe it in a single sentence. Example valid commands:\n"
+                  "Please choose the next goal for GOOSE {},"
+                  "and describe it in a single sentence. Example valid commands:\n"
                       "\"Press the button approximately north of you.\"\n"
                       "\"Find and reach the goal in the southeast corner.\"\n"
+                      "\"Go through an open door west of you.\"\n"
                       "\"Honk and wait.\"\n")
 
-GOOSE_SYSTEM_PROMPT = ("You are a GOOSE in a GOOSE game. Your task is to obey the PLANNER commands. "
+GOOSE_SYSTEM_PROMPT = ("You are {} in a GOOSE game. Your task is to obey the PLANNER commands. "
                        "The commands are high-level, and may require multiple moves. You need to figure out your next move only.\n")
-GOOSE_PROMPT = ("You receive a message from the PLANNER that tells you that your next goal is the following:\n"
-                "{}\n"
-                "The game state you are currently observing is the following:\n"
+GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "{}\n"
                 "The map legend:\n"
                 "# wall\n"
@@ -37,6 +40,8 @@ GOOSE_PROMPT = ("You receive a message from the PLANNER that tells you that your
                 "`?` unknown\n"
                 "`X` goose 1\n"
                 "`Y` goose 2\n"
+                "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
+                "{}\n"
                 "If the map shows * at your current position (i.e., you cannot see your own X/Y symbol), you are standing on the goal. "
                 "Your correct action is to HONK.\n"
                 "Otherwise, please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
@@ -77,9 +82,14 @@ def get_model_answer(client, model, system_prompt, user_prompt):
                     {"role": "user", "content": user_prompt}
                 ]
             )
+            if not model_response.choices:
+                continue # retry
             answer = model_response.choices[0].message.content
         except openai.RateLimitError:
             time.sleep(60)
+        except Exception:
+            traceback.print_exc()
+            raise
     return answer
 
 class GooseAgentImpl(GooseAgent):
@@ -91,30 +101,34 @@ class GooseAgentImpl(GooseAgent):
         self._append_to_chat(f"Planner message: {message.description}")
         #event = self._env.honk(count=1)
 
-        for attempt in range(3):
-            answer = get_model_answer(self._client,
-                                      self._used_model,
-                                      GOOSE_SYSTEM_PROMPT,
-                                      GOOSE_PROMPT.format(message.description, self._env.describe_state()))
-            self._append_to_chat("Goose move: " + answer)
-            answer = answer.lower()
-            if "up" in answer:
-                self._env.move(Direction.UP)
-                break
-            elif "down" in answer:
-                self._env.move(Direction.DOWN)
-                break
-            elif "left" in answer:
-                self._env.move(Direction.LEFT)
-                break
-            elif "right" in answer:
-                self._env.move(Direction.RIGHT)
-                break
-            elif "honk" in answer:
-                self._env.honk(1)
-                break
-            elif attempt == 2:
-                raise RuntimeError("Bad Gemma")
+        if "honk" in message.description.lower():
+            self._append_to_chat("Honk!")
+            self._env.honk(1)
+        else:
+            for attempt in range(3):
+                answer = get_model_answer(self._client,
+                                          self._used_model,
+                                          GOOSE_SYSTEM_PROMPT.format(self._env.goose_id),
+                                          GOOSE_PROMPT.format(self._env.describe_state(), message.description))
+                self._append_to_chat("Goose move: " + answer)
+                answer = answer.lower()
+                if "up" in answer:
+                    self._env.move(Direction.UP)
+                    break
+                elif "down" in answer:
+                    self._env.move(Direction.DOWN)
+                    break
+                elif "left" in answer:
+                    self._env.move(Direction.LEFT)
+                    break
+                elif "right" in answer:
+                    self._env.move(Direction.RIGHT)
+                    break
+                elif "honk" in answer:
+                    self._env.honk(1)
+                    break
+                elif attempt == 2:
+                    raise RuntimeError("Bad Gemma")
 
         # positions = self._env.visible_goose_positions()
         # self_state = self._env.describe_state()
@@ -123,6 +137,7 @@ class GooseAgentImpl(GooseAgent):
                                         self._used_model,
                                         GOOSE_OBS_SYSTEM_PROMPT,
                                         GOOSE_OBS_PROMPT.format(self._env.describe_state(), self._env.visible_goose_positions()))
+        goose_report = f"My position is {self._env.visible_goose_positions()[self._env.goose_id]}. {goose_report}"
 
         self._append_to_chat(f"GooseAgent answer: {goose_report}")
         return GooseAgentResult(output=goose_report)
@@ -138,6 +153,7 @@ class PlannerAgentImpl(PlannerAgent):
         append_to_chat: ChatCallback,
     ) -> None:
         super().__init__(client, used_model, env, agents, append_to_chat)
+        self._memory = []
         self._append_to_chat(f"Initialized planner for level: {env.level_name}.")
 
     def step(self) -> None:
@@ -149,12 +165,16 @@ class PlannerAgentImpl(PlannerAgent):
             answer = get_model_answer(self._client,
                                       self._used_model,
                                       PLANNER_SYSTEM_PROMPT,
-                                      PLANNER_PROMPT.format(self._env.task_description, result.output, goose_id))
+                                      PLANNER_PROMPT.format(self._memory[-4:],
+                                          self._env.task_description,
+                                                            result.output,
+                                                            goose_id))
 
-            task = GooseAgentMessage(description=answer)#f"{goose_id}, honk now.")
+            task = GooseAgentMessage(description=answer) #f"{goose_id}, honk now."
             self._append_to_chat(f"Calling {goose_id}.")
             result = goose.on_call(task)
             if result.error is not None:
                 self._append_to_chat(f"{goose_id} error: {result.error}")
             else:
                 self._append_to_chat(f"{goose_id} result: {result.output}")
+                self._memory.append((goose_id, result.output))
