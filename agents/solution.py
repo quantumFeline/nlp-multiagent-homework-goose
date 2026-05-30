@@ -49,6 +49,7 @@ def get_model_answer(client, model, system_prompt, user_prompt, max_retries=MAX_
 
 
 def parse_move(text):
+    """Return a Direction, the string 'HONK', or None if unparseable."""
     t = text.strip().lower()
     if re.search(r"\b(honk|stay|wait|hold|remain)\b", t):
         return "HONK"
@@ -97,10 +98,13 @@ GOOSE_MOVE_SYSTEM = (
 )
 GOOSE_MOVE_PROMPT = (
     "Map:\n{}\n\n"
-    "Find your own marker ({}); that square is you. If your square shows *, you are on the goal.\n"
+    "{}\n"  # self-position anchor from the environment
+    "Look at your own square on the map using the position given above. If it shows *, you are on the goal.\n"
     "Your instruction: {}\n"
-    "Take the single step that best follows the instruction, into a square you are allowed to enter. "
-    "If you are already where the instruction wants you, answer HONK. One word only.\n"
+    "Find the target of your instruction on the map. Take the single step (UP/DOWN/LEFT/RIGHT) that moves "
+    "you closer to it, moving along whichever axis you are furthest from it on, and only into a square that "
+    "is not a wall, a closed door, or unknown. If you are already on the target, answer HONK.\n"
+    "Answer with one word only.\n"
 )
 
 GOOSE_REPORT_SYSTEM = (
@@ -111,13 +115,15 @@ GOOSE_REPORT_SYSTEM = (
 )
 GOOSE_REPORT_PROMPT = (
     "Map:\n{}\n\n"
-    "Find your own marker ({}); that square is you. If your square shows *, you are standing on the goal.\n"
-    "Report exactly in this shape:\n"
+    "{}\n"  # self-position anchor from the environment
+    "Use the position given above to find yourself on the map. If your own square shows *, you are standing "
+    "on the goal.\n"
+    "Report exactly in this shape, describing everything relative to yourself, with NO coordinates:\n"
     "\"I am standing on [the goal / an ordinary square]. North: [what is in the square immediately north]. "
     "South: [...]. East: [...]. West: [...]. Also visible: [each button, door, the goal, and the other "
     "goose you can see, with direction and distance].\"\n"
-    "Note: if you are standing on a button you will see your own marker, not @, so you cannot tell from the "
-    "map that you are on a button. In that case just call your square ordinary.\n"
+    "Note: if you are standing on a button you will see your own marker, not @, so just call your square "
+    "ordinary.\n"
 )
 
 PLANNER_SYSTEM = (
@@ -134,14 +140,18 @@ PLANNER_SELECT_PROMPT = (
     "Progress so far:\n{}\n\n"
     "Latest report from {}: {}\n"
     "Latest report from the other goose: {}\n\n"
-    "Choose the single next sub-goal for {}. Output one short command, phrased relative to the goose, "
-    "and nothing else. Use 'Reach ...' for moving towards something and 'Stay/Hold ...' for staying put. "
+    "By default a goose should reach the goal and then honk on it - this is almost always the correct "
+    "sub-goal. Only give a goose a helping sub-goal (reaching or holding a button) when a CLOSED door blocks "
+    "the OTHER goose's path to the goal and a button is available to open it. Never send a goose to chase or "
+    "reach the other goose.\n"
+    "Choose the single next sub-goal for {}. Output one short command, phrased relative to the goose, and "
+    "nothing else. Use 'Reach ...' for moving towards something and 'Stay/Hold ...' for staying put. "
     "Examples:\n"
+    "  Reach the goal.\n"
+    "  Honk and wait on the goal.\n"
     "  Reach the button to the south.\n"
     "  Stay on the button to hold the door for the other goose.\n"
     "  Go through the open door to the east.\n"
-    "  Reach the goal.\n"
-    "  Honk and wait on the goal.\n"
     "Pick exactly one next action; do not chain actions.\n"
 )
 
@@ -180,31 +190,47 @@ class GooseAgentImpl(GooseAgent):
     def on_call(self, message: GooseAgentMessage) -> GooseAgentResult:
         cmd = message.description
         self._append_to_chat(f"Command: {cmd}")
-        self._act(cmd)
+        self._act(cmd, self._anchor())  # anchor reflects position BEFORE the move
 
+        # Recompute the anchor so the report reflects the post-move position.
         report = get_model_answer(self._client, self._used_model,
                                   GOOSE_REPORT_SYSTEM,
-                                  GOOSE_REPORT_PROMPT.format(self._env.describe_state(), self._marker))
+                                  GOOSE_REPORT_PROMPT.format(self._env.describe_state(), self._anchor()))
         self._append_to_chat(f"Turn {self.turn_counter}. Report: {report}")
         self.turn_counter += 1
         return GooseAgentResult(output=report)
 
-    def _act(self, cmd: str) -> None:
+    def _anchor(self) -> str:
+        """self-location from the environment"""
+        positions = self._env.visible_goose_positions()
+        me = positions.get(self._env.goose_id)
+        if me is None:
+            return "Your own position is unavailable; find your marker on the map."
+        parts = [f"You are the marker {self._marker}, at row {me[0]}, column {me[1]} "
+                 f"(rows are counted from the top, columns from the left)."]
+        for gid, pos in positions.items():
+            if gid != self._env.goose_id:
+                other = "X" if gid.endswith("1") else "Y"
+                parts.append(f"The other goose ({other}) is at row {pos[0]}, column {pos[1]}.")
+        return " ".join(parts)
+
+    def _act(self, cmd: str, anchor: str) -> None:
         if any(k in cmd.lower() for k in HOLD_KEYWORDS):
             self._honk()
             return
-        move = self._decide_move(cmd)
+        move = self._decide_move(cmd, anchor)
         if move is None or move == "HONK":
             self._honk()
         else:
             self._env.move(move)  # no-op (returns False) if blocked or out of budget
 
-    def _decide_move(self, cmd: str):
+    def _decide_move(self, cmd: str, anchor: str):
+        """Majority vote over MOVE_VOTES samples."""
         votes = []
         for _ in range(MOVE_VOTES):
             ans = get_model_answer(self._client, self._used_model,
                                    GOOSE_MOVE_SYSTEM,
-                                   GOOSE_MOVE_PROMPT.format(self._env.describe_state(), self._marker, cmd))
+                                   GOOSE_MOVE_PROMPT.format(self._env.describe_state(), anchor, cmd))
             self._append_to_chat(f"  move sample: {ans.strip()}")
             m = parse_move(ans)
             if m is not None:
@@ -260,6 +286,8 @@ class PlannerAgentImpl(PlannerAgent):
         return others[0] if others else goose_id
 
     def _ensure_subgoal(self, gid: str, other_id: str) -> None:
+        """The gate: keep the committed sub-goal unless it is complete (or a hold has
+        run out of patience). Only then re-select."""
         sg = self._subgoal[gid]
         if sg is not None:
             if self._is_complete(gid, other_id, sg):
