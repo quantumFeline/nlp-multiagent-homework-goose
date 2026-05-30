@@ -40,12 +40,13 @@ PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "Please choose the next goal for GOOSE {},"
                   "and describe it in a single sentence. "
                   "Do not use absolute coordinates, rather relying on relative descriptions. Example valid commands:\n"
-                      "\"Press the button approximately north of you.\"\n"
+                      "\"Press the button north of you.\"\n"
                       "\"Stay on the button.\"\n"
-                      "\"Find and reach the goal south-east from you.\"\n"
+                      "\"Find and reach the goal.\"\n"
                       "\"Go through an open door west of you.\"\n"
-                      "\"Find and reach the closed door south of you.\"\n"
-                      "\"Honk and wait.\"\n")
+                      "\"Find and reach the closed door.\"\n"
+                      "\"Honk and wait.\"\n\n"
+                  "Do not use complex commands, such as \"Go through the door and then reach the goal.\" Only provide the next course of action.")
 
 PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
@@ -54,10 +55,10 @@ PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
                   "The goal of this level is the following:\n"
                   "{}\n"
                   "Return the updated planner message that keeps the key game state information. Example messages:\n"
-                    "\"I need to keep goose_1 on the button at (5, 0) so that goose_2 can pass through the door at (1, 1).\"\n"
-                    "\"I need to test which button can open the door for goose_1. The button at (3,2) didn't work, "
-                      "therefore, the correct button is either at (3,4) or (5,5).\"\n"
-                    "\"goose_2 has successfully passed the door and is at the goal at (2, 2). goose_1 must navigate to the goal.")
+                    "\"goose_2 is separate from the goal by a door. I need to keep goose_1 on the button at (5, 0) so that goose_2 can pass through the door at (1, 1).\"\n"
+                    "\"goose_1 is separate from the goal by a door. I need to test which button can open the door for goose_1. The button at (3,2) didn't work, "
+                      "therefore, the correct button is either at (3,4) or (5,5). I will now lead goose_1 to the button at (3,4), which is north of it.\"\n"
+                    "\"goose_2 has successfully passed the door. goose_1 must now ignore the button and navigate directly to the goal.\n")
 
 GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey the PLANNER commands.\n"
                        "Based on the planner message, you need to figure out how to move towards the indicated position "
@@ -82,7 +83,8 @@ GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
                 "{}\n"
                 "If the map shows * at your current position (i.e., you cannot see your own X/Y symbol), you are standing on the goal. "
-                "Your correct action is to HONK. You also must HONK if you are told to hold your current position for any reason.\n"
+                "Your correct action is to HONK.\n"
+                "HONK is also the move you should use if you want to do nothing. It is analogous to \"stay\", \"wait\", or \"hold\".\n"
                 "Otherwise, please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
 
 GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and pass useful information to the planner.\n"
@@ -101,12 +103,13 @@ GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "{}"
                     "and the visible goose positions are:\n"
                     "{}"
-                    "Please pass the key information about your observations to the planner in an accessible form.\n"
+                    "Please pass the key information about your observations to the planner in the following format:\n"
+                    "\"I am at [position]. Immediately north: [symbol]. Immediately south: [symbol]. Immediately east: [symbol]. Immediately west: [symbol]. Also visible: [description].\"\n"
                     "Example descriptions:\n"
-                    "\"I am at (4, 2). There is a wall to the east of me and a button northeast at (1, 4). The path towards the goal is clear of obstacles.\"\n"
-                    "\"I am at (3, 0). There is an open door directly north and another goose west at (1, 0). The goal is on the other side of the door.\"\n"
-                    "\"I am at (3, 0). There is an closed door directly north and another goose west at (1, 0). I do not see the goal.\"\n"
-                    "\"I am at (2, 1). There is a wall west of me at (1, 1) and a wall south of me at (2, 2). I am standing directly at the goal.\n")
+                    "\"I am at (4, 2). Immediately north: button. Immediately south: empty. Immediately east: wall. Immediately west: empty. Also visible: there is a button north-east at (1, 4). The path towards the goal is clear of obstacles.\"\n"
+                    "\"I am at (3, 0). Immediately north: open door. Immediately south: empty. Immediately east: empty. Immediately west: goose_2. Also visible: the goal is north of the open door.\"\n"
+                    "\"I am at (3, 0). Immediately north: closed door. Immediately south: empty. Immediately east: empty. Immediately west: goose_1. Also visible: none.\"\n"
+                    "\"I am at (2, 1). Immediately north: empty. Immediately south: wall. Immediately east: empty. Immediately west: wall. Also visible: I am standing directly at the goal.\n")
 
 def get_model_answer(client, model, system_prompt, user_prompt):
     answer = None
@@ -143,8 +146,8 @@ class GooseAgentImpl(GooseAgent):
         self._append_to_chat(f"Planner message: {message.description}")
         #event = self._env.honk(count=1)
 
-        if "honk" in message.description.lower() or "wait" in message.description.lower():
-            self._append_to_chat("Honk!")
+        HOLD_KEYWORDS = ("honk", "wait", "stay", "hold", "remain", "stand", "do nothing")
+        if any(k in message.description.lower() for k in HOLD_KEYWORDS):
             self._env.honk(1)
         else:
             for attempt in range(3):
@@ -197,15 +200,15 @@ class PlannerAgentImpl(PlannerAgent):
     ) -> None:
         super().__init__(client, used_model, env, agents, append_to_chat)
         self._memory = []
+        self._last_reports: dict[str, str] = {
+            gid: "No reports yet." for gid in self._agents
+        }
         self.turn_counter = 0
         self._append_to_chat(f"Initialized planner for level: {env.level_name}.")
 
     def step(self) -> None:
         self._append_to_chat("Planner step executed.")
 
-        results: dict[str, GooseAgentResult] = {
-            gid: GooseAgentResult(output="No reports yet.") for gid in self._agents
-        }
         planner_notes = "No planner message yet."
         for goose_id, goose in sorted(self._agents.items()):
 
@@ -214,27 +217,28 @@ class PlannerAgentImpl(PlannerAgent):
                                       self._used_model,
                                       PLANNER_SYSTEM_PROMPT,
                                       PLANNER_PROMPT.format(self._memory[-4:],
-                                          planner_notes,
-                                          self._env.task_description,
+                                                            planner_notes,
+                                                            self._env.task_description,
                                                             goose_id,
-                                                            results[goose_id].output,
+                                                            self._last_reports[goose_id],
                                                             goose_id))
 
             task = GooseAgentMessage(description=answer)
             self._append_to_chat(f"Calling {goose_id}.")
-            results[goose_id] = goose.on_call(task)
-            if results[goose_id].error is not None:
-                self._append_to_chat(f"{goose_id} error: {results[goose_id].error}")
+            result = goose.on_call(task)
+            if result.error is not None:
+                self._append_to_chat(f"{goose_id} error: {result.error}")
             else:
-                self._append_to_chat(f"{goose_id} result: {results[goose_id].output}")
-                self._memory.append((goose_id, results[goose_id].output))
+                self._append_to_chat(f"{goose_id} result: {result.output}")
+                self._memory.append((goose_id, result.output))
+                self._last_reports[goose_id] = result.output
 
             # Planner self-notes
             planner_notes = get_model_answer(self._client,
-                                      self._used_model,
-                                      PLANNER_SYSTEM_PROMPT,
-                                      PLANNER_OBS_PROMPT.format(self._memory[-4:],
-                                          planner_notes,
-                                          self._env.task_description))
+                                             self._used_model,
+                                             PLANNER_SYSTEM_PROMPT,
+                                             PLANNER_OBS_PROMPT.format(self._memory[-4:],
+                                                                       planner_notes,
+                                                                       self._env.task_description))
             self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + planner_notes)
         self.turn_counter += 1
