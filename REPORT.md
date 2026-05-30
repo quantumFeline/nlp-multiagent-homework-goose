@@ -35,6 +35,7 @@ Sometimes planner sees the door is closed and commands a goose to stay on the bu
 
 **Solution:**
 
+* Provide a detailed description of the game and the game rules. Describe the general mechanics (buttons open doors) without any level-specific guidance.
 * Let the planner fill out its own memory to keep track of current tasks.
 * Include example memory commands that handle door-button interactions.
 

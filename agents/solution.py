@@ -8,15 +8,25 @@ from agents.base import ChatCallback, GooseAgent, GooseAgentMessage, GooseAgentR
 from goose_game.environment import GooseEnvironment, PlannerEnvironment
 from goose_game.models import Direction
 
-PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME. "
+PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
+                         "The game is a puzzle where both geese need to reach the goal. However, they might have to solve intermediate tasks in order to achieve that.\n"
                          "Your task so to coordinate the geese so that both of them reach the goal marked with * and honk when standing on it.\n"
-                         "Each game turn, a goose is asking you where to move. Your task is to provide it with its next action.\n"
-                         "Once a goose reports reaching the goal, instruct it to HONK and stay put.\n"
-                         "Sometimes geese may need help from each other, for example, by opening doors for them. "
+                         "Each game turn, a goose is provides you with what it sees and asks you where to move. Your task is to provide it with its next action.\n"
+                         "Remember that a goose may only have partial information about the game state and does not have memory. You have memory and need to "
+                         "use it for long-term planning.\n"
+                         "Once a goose reports reaching the goal, instruct it to HONK and stay put.\n\n"
+                         "The game has the following types of objects:\n"
+                         "goose_1 and goose_2 that you control;\n"
+                         "goal - a special square that both geese need to reach;\n"
+                         "doors - they are impassable when closed, possible to go through when open; a button opens a door;\n"
+                         "buttons - they can be pressed by standing on them, however, not every button is connected to a door, and some of them might do nothing;\n"
+                         "walls - they are impassable.\n\n"
+                         "Pro tip: sometimes geese may need help from each other, for example, by opening doors for each other. "
                          "In this case, one goose should help the other, provided there is a closed door between the other goose and its next destination. "
                          "Once the other goose has passed through the door, the first one should no longer hold a button and instead "
                          "focus on pursuing the goal themselves.\n"
-                         "You may also meet more complex situations, such as multiple buttons or multiple doors.\n")
+                         "Remember that a goose cannot hold the door for itself.\n"
+                         "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n")
 
 PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
