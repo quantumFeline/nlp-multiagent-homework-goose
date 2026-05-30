@@ -18,7 +18,7 @@ The goose reads the absolute coordinates and misinterprets it, assuming (x, y) f
 
 **Solution:**
 
-* Emphasize the (row, col) format in the system prompts.
+* Emphasize the (row, col) format in the system prompts - or encourage to drop the format altogether.
 * Request the planner to provide relative rather than absolute goals.
 
 ### Confusing the geese
@@ -46,6 +46,15 @@ The geese frequently wander off the button or the goal, even if the planner requ
 **Solution:**
 
 * Explicitly mention in system and user prompts for the goose that HONK command can be used for waiting or staying in place, and in fact should be used for that exact purpose.
+
+### Confusing coordinates
+
+The goose misreports its immediate surroundings (e.g. reporting empty space where there is a button).
+
+Solution:
+
+* Memory feature was out of sync, resulting in confusing commands; refactored to relay the most recent observation reliably.
+* Discourage passing absolutely coordinates and encourage egocentric bearing.
 
 ## Technical problems encountered
 

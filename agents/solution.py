@@ -26,7 +26,16 @@ PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
                          "Once the other goose has passed through the door, the first one should no longer hold a button and instead "
                          "focus on pursuing the goal themselves.\n"
                          "Remember that a goose cannot hold the door for itself.\n"
-                         "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n")
+                         "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n\n")
+                         # "Pro tip: A goose standing on a button cannot see it: its own marker hides the button, so it will report standing on an ordinary square. "
+                         # "Never wait for a goose to confirm it is on a button. Infer it from your own instructions: if you sent a goose toward a button "
+                         # "and its next report no longer shows that button in an adjacent square, assume it is now standing on the button and command it to "
+                         # "\"Stay on the button\" every turn until the other goose reports it has reached the goal.\n"
+                         # "A held button only keeps a door open while the goose remains on it, so the holding goose must Stay (honk) continuously; "
+                         # "do not move it away to pursue the goal until the other goose is confirmed at the goal.\n\n"
+                         # "Pro tip: treat progress as latching. Once you have established that a goose is holding a button, "
+                         # "or that a goose has passed through a door, record it and do not reverse it on the strength of a single later report unless that report plainly contradicts it. "
+                         # "Commit to one sub-goal per goose; do not alternate a goose between two goals on consecutive turns.\n")
 
 PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
@@ -77,7 +86,9 @@ GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey t
                         "`?` unknown\n"
                         "`X` goose 1\n"
                         "`Y` goose 2\n"
-                           "The coordinates must be read as (row, col), i.e. (y, x).\n")
+                            "The coordinates must be read as (row, col), i.e. (y, x).\n"
+                            "Reason about positions only relative to yourself - compass directions and distances in squares. "
+                            "Do not use numeric coordinates.\n")
 GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "{}\n"
                 "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
@@ -100,16 +111,23 @@ GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and p
                         "`Y` goose 2\n"
                            "The coordinates must be read as (row, col), i.e. (y, x).\n")
 GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
-                    "{}"
-                    "and the visible goose positions are:\n"
-                    "{}"
-                    "Please pass the key information about your observations to the planner in the following format:\n"
-                    "\"I am at [position]. Immediately north: [symbol]. Immediately south: [symbol]. Immediately east: [symbol]. Immediately west: [symbol]. Also visible: [description].\"\n"
+                    "{}\n"
+                    "Find your own marker in the map (X if you are goose_1, Y if you are goose_2); "
+                    "that square is where you are standing. Describe everything else relative to it - "
+                    "compass direction and how many squares away. Do not use numeric coordinates.\n"
+                    "Pass the key information to the planner in this format:\n"
+                    "\"I am standing on [the goal / an ordinary square]. Immediately north: [symbol]. "
+                    "Immediately south: [symbol]. Immediately east: [symbol]. Immediately west: [symbol]. "
+                    "Also visible: [relative description].\"\n"
                     "Example descriptions:\n"
-                    "\"I am at (4, 2). Immediately north: button. Immediately south: empty. Immediately east: wall. Immediately west: empty. Also visible: there is a button north-east at (1, 4). The path towards the goal is clear of obstacles.\"\n"
-                    "\"I am at (3, 0). Immediately north: open door. Immediately south: empty. Immediately east: empty. Immediately west: goose_2. Also visible: the goal is north of the open door.\"\n"
-                    "\"I am at (3, 0). Immediately north: closed door. Immediately south: empty. Immediately east: empty. Immediately west: goose_1. Also visible: none.\"\n"
-                    "\"I am at (2, 1). Immediately north: empty. Immediately south: wall. Immediately east: empty. Immediately west: wall. Also visible: I am standing directly at the goal.\n")
+                    "\"I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. "
+                    "Immediately east: wall. Immediately west: empty. Also visible: a button two squares to the "
+                    "north-east; the path south toward the goal looks clear.\"\n"
+                    "\"I am standing on an ordinary square. Immediately north: open door. Immediately south: empty. "
+                    "Immediately east: empty. Immediately west: goose_2. Also visible: the goal lies just north of "
+                    "the open door.\"\n"
+                    "\"I am standing on the goal. Immediately north: empty. Immediately south: wall. "
+                    "Immediately east: empty. Immediately west: wall. Also visible: none.\"\n")
 
 def get_model_answer(client, model, system_prompt, user_prompt):
     answer = None
@@ -181,7 +199,7 @@ class GooseAgentImpl(GooseAgent):
         goose_report = get_model_answer(self._client,
                                         self._used_model,
                                         GOOSE_OBS_SYSTEM_PROMPT.format(self._env.goose_id),
-                                        GOOSE_OBS_PROMPT.format(self._env.describe_state(), self._env.visible_goose_positions()))
+                                        GOOSE_OBS_PROMPT.format(self._env.describe_state()))
         #goose_report = f"My position is {self._env.visible_goose_positions()[self._env.goose_id]}. {goose_report}"
 
         self._append_to_chat(f"Turn {self.turn_counter}. GooseAgent answer: {goose_report}")
@@ -205,24 +223,20 @@ class PlannerAgentImpl(PlannerAgent):
         }
         self.turn_counter = 0
         self._append_to_chat(f"Initialized planner for level: {env.level_name}.")
+        self._planner_notes = "No planner message yet."
 
     def step(self) -> None:
         self._append_to_chat("Planner step executed.")
-
-        planner_notes = "No planner message yet."
         for goose_id, goose in sorted(self._agents.items()):
-
-            # Planning
             answer = get_model_answer(self._client,
                                       self._used_model,
                                       PLANNER_SYSTEM_PROMPT,
                                       PLANNER_PROMPT.format(self._memory[-4:],
-                                                            planner_notes,
+                                                            self._planner_notes,
                                                             self._env.task_description,
                                                             goose_id,
                                                             self._last_reports[goose_id],
                                                             goose_id))
-
             task = GooseAgentMessage(description=answer)
             self._append_to_chat(f"Calling {goose_id}.")
             result = goose.on_call(task)
@@ -233,12 +247,11 @@ class PlannerAgentImpl(PlannerAgent):
                 self._memory.append((goose_id, result.output))
                 self._last_reports[goose_id] = result.output
 
-            # Planner self-notes
-            planner_notes = get_model_answer(self._client,
-                                             self._used_model,
-                                             PLANNER_SYSTEM_PROMPT,
-                                             PLANNER_OBS_PROMPT.format(self._memory[-4:],
-                                                                       planner_notes,
-                                                                       self._env.task_description))
-            self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + planner_notes)
+            self._planner_notes = get_model_answer(self._client,
+                                                   self._used_model,
+                                                   PLANNER_SYSTEM_PROMPT,
+                                                   PLANNER_OBS_PROMPT.format(self._memory[-4:],
+                                                                             self._planner_notes,
+                                                                             self._env.task_description))
+            self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + self._planner_notes)
         self.turn_counter += 1
