@@ -31,8 +31,10 @@ PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "and describe it in a single sentence. "
                   "Do not use absolute coordinates, rather relying on relative descriptions. Example valid commands:\n"
                       "\"Press the button approximately north of you.\"\n"
-                      "\"Find and reach the goal in the southeast corner.\"\n"
+                      "\"Stay on the button.\"\n"
+                      "\"Find and reach the goal south-east from you.\"\n"
                       "\"Go through an open door west of you.\"\n"
+                      "\"Find and reach the closed door south of you.\"\n"
                       "\"Honk and wait.\"\n")
 
 PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
@@ -191,7 +193,9 @@ class PlannerAgentImpl(PlannerAgent):
     def step(self) -> None:
         self._append_to_chat("Planner step executed.")
 
-        result = GooseAgentResult(output="No reports yet.")
+        results: dict[str, GooseAgentResult] = {
+            gid: GooseAgentResult(output="No reports yet.") for gid in self._agents
+        }
         planner_notes = "No planner message yet."
         for goose_id, goose in sorted(self._agents.items()):
 
@@ -203,17 +207,17 @@ class PlannerAgentImpl(PlannerAgent):
                                           planner_notes,
                                           self._env.task_description,
                                                             goose_id,
-                                                            result.output,
+                                                            results[goose_id].output,
                                                             goose_id))
 
-            task = GooseAgentMessage(description=answer) #f"{goose_id}, honk now."
+            task = GooseAgentMessage(description=answer)
             self._append_to_chat(f"Calling {goose_id}.")
-            result = goose.on_call(task)
-            if result.error is not None:
-                self._append_to_chat(f"{goose_id} error: {result.error}")
+            results[goose_id] = goose.on_call(task)
+            if results[goose_id].error is not None:
+                self._append_to_chat(f"{goose_id} error: {results[goose_id].error}")
             else:
-                self._append_to_chat(f"{goose_id} result: {result.output}")
-                self._memory.append((goose_id, result.output))
+                self._append_to_chat(f"{goose_id} result: {results[goose_id].output}")
+                self._memory.append((goose_id, results[goose_id].output))
 
             # Planner self-notes
             planner_notes = get_model_answer(self._client,
