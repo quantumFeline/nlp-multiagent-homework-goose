@@ -59,7 +59,32 @@ Free-form natural language goose observations (e.g. "there is a button to the no
 * Drop free-form descriptions entirely. Replace with a tightly structured single-line format covering only the four directly adjacent cells: `standing_on=[goal/square] North=[symbol] South=[symbol] West=[symbol] East=[symbol]`. This limits the model's task to reading four adjacent symbols, which is reliable at this scale.
 * Apply **chain-of-thought prompting** across all LLM calls: the model is instructed to reason step by step, then end its response with a single line in a fixed format. Only the last line is parsed as the final answer, leaving reasoning free while keeping the extractable output unambiguous.
 
+### Planner not reacting to state changes
+
+When a door opened, the planner would issue instructions before processing the new GoalEstimator signal, causing the pressing goose to walk away just as the other was about to pass through.
+
+**Solution:**
+
+* Split planning into two sequential calls: a **think** call (`PLANNER_THINK_PROMPT`) that updates the notes given the latest estimates, followed by per-goose **instruction** calls that read the freshly updated notes.
+
+### Planner confusing closed doors with buttons
+
+The planner repeatedly identified `$` as a button and sent geese to press it. Removing the combined map from planner prompts eliminated the confusion but left the planner with no spatial knowledge; geese wandered aimlessly.
+
+**Solution:**
+
+* Keep the combined map but pre-process it before passing to the planner: `@` to `B`, `$` to `D`, `/` to `O`. Characters are distinct enough that the model does not conflate them.
+* Expand raw symbols in goose reports to unambiguous names (`West=closed_door`, `South=button`) before storing them in planner memory.
+
+### Self-location errors in goose calls
+
+The goose would scan the map incorrectly to locate its own marker, leading to wrong adjacency reports and wrong move decisions.
+
+**Solution:**
+
+* Inject the goose's grid position from `visible_goose_positions()` as an anchor into the move prompt, observation prompt, and GoalEstimator prompt. The model is told its position explicitly and only needs to read four adjacent symbols.
+
 ## Technical problems encountered
 
-* Gemma has a strict per-minute rate limit, which gets spent almost immediately, resulting in `RateLimitError`. **Solution**: introduce a helper function that catches the exception and retries after a cooldown.
-* Logs were hard to keep track of and compare across agents. **Solution**: introduce turn counters.
+* Gemma has a strict per-minute rate limit, resulting in `RateLimitError`. **Solution**: introduce a helper function that catches the exception and retries after a cooldown; empty responses are retried with a short sleep.
+* Logs were hard to keep track of and compare across agents. **Solution**: introduce turn counters and log the combined map and planner notes on every step.

@@ -9,6 +9,24 @@ from goose_game.environment import GooseEnvironment, PlannerEnvironment
 from goose_game.models import Direction
 
 MAP_LEGEND = "# wall  . empty  * goal  @ button  $ closed door  / open door  ? unknown  X goose_1  Y goose_2\n"
+PLANNER_MAP_LEGEND = "# wall  . empty  * goal  B button  D closed door  O open door  ? unknown  X goose_1  Y goose_2\n"
+
+SYMBOL_TO_NAME = {
+    "=#": "=wall", "=.": "=empty", "=*": "=goal",
+    "=@": "=button", "=$": "=closed_door", "=/": "=open_door",
+    "=?": "=unknown", "=X": "=goose_1", "=Y": "=goose_2",
+}
+
+def expand_report(report: str) -> str:
+    """Expand raw map symbols in a structured goose report to unambiguous names."""
+    last_line = report.strip().split('\n')[-1]
+    for sym, name in SYMBOL_TO_NAME.items():
+        last_line = last_line.replace(sym, name)
+    return last_line
+
+def expand_map(grid: str) -> str:
+    """Replace confusable map symbols with distinct single characters for the planner."""
+    return grid.replace("@", "B").replace("$", "D").replace("/", "O")
 
 PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
                          "The game is a puzzle where both geese need to reach the goal. However, they might have to solve intermediate tasks in order to achieve that.\n"
@@ -35,7 +53,9 @@ PLANNER_THINK_PROMPT = (
     "Previous goose reports:\n{}\n"
     "Previous planner notes:\n{}\n"
     "Level goal: {}\n"
-    "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
+    "Combined map (? = not yet seen):\n{}\n"
+    "Map legend: " + PLANNER_MAP_LEGEND
+    + "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
     "(CLEAR = unobstructed path; BLOCKED = closed door on every path; UNKNOWN = unobserved cells blocking view)\n"
     "If a goose just became CLEAR that was previously BLOCKED, the door opened - update the plan accordingly.\n"
     "Think step by step, then end with a single line:\n"
@@ -49,8 +69,11 @@ PLANNER_THINK_PROMPT = (
 PLANNER_PROMPT = (
     "Planner notes:\n{}\n"
     "Level goal: {}\n"
-    "Game state as visible by GOOSE {}:\n{}\n"
-    "Based on the notes above, choose the single next action for GOOSE {}.\n"
+    "Combined map (? = not yet seen):\n{}\n"
+    "Map legend: " + PLANNER_MAP_LEGEND
+    + "GOOSE {} is at row {}, col {}; its immediate surroundings are: {}\n"
+    "Reason over the map to locate this goose's next target, then translate the plan "
+    "into a concrete move for where it currently stands.\n"
     "One sentence, relative directions only, no coordinates.\n"
     "Example instructions: Press the button north of you. / Stay on the button. / "
     "Find and reach the goal. / Honk and wait. / Go through the open door to the west.\n"
@@ -301,6 +324,7 @@ class PlannerAgentImpl(PlannerAgent):
                                  PLANNER_THINK_PROMPT.format(self._memory[-4:],
                                                              self._planner_notes,
                                                              self._env.task_description,
+                                                             expand_map(combined_map),
                                                              estimates["goose_1"],
                                                              estimates["goose_2"]))
         notes_line = next((l.removeprefix("NOTES:").strip() for l in think.splitlines() if l.startswith("NOTES:")), self._planner_notes)
@@ -308,12 +332,16 @@ class PlannerAgentImpl(PlannerAgent):
         self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: {self._planner_notes}")
 
         for goose_id, goose in sorted(self._agents.items()):
+            current_map = expand_map(self._map_composer.get() or "No map yet.")
+            pos = self._agents[goose_id]._env.visible_goose_positions().get(goose_id)
+            row, col = pos if pos is not None else (-1, -1)
             answer = get_model_answer(self._client,
                                       self._used_model,
                                       PLANNER_SYSTEM_PROMPT,
                                       PLANNER_PROMPT.format(self._planner_notes,
                                                             self._env.task_description,
-                                                            goose_id,
+                                                            current_map,
+                                                            goose_id, row, col,
                                                             self._last_reports[goose_id],
                                                             goose_id))
             instruction = next((l.removeprefix("INSTRUCTION:").strip() for l in answer.splitlines() if l.startswith("INSTRUCTION:")), answer.strip().splitlines()[-1])
@@ -323,7 +351,8 @@ class PlannerAgentImpl(PlannerAgent):
             if result.error is not None:
                 self._append_to_chat(f"{goose_id} error: {result.error}")
             else:
-                self._append_to_chat(f"{goose_id} result: {result.output}")
-                self._memory.append((goose_id, result.output))
-                self._last_reports[goose_id] = result.output
+                expanded = expand_report(result.output)
+                self._append_to_chat(f"{goose_id} result: {expanded}")
+                self._memory.append((goose_id, expanded))
+                self._last_reports[goose_id] = expanded
         self.turn_counter += 1
