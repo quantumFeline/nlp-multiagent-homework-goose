@@ -33,7 +33,7 @@ PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
 
 PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
-                  "Previous planner message was the following:\n"
+                  "Previous planner notes were the following:\n"
                   "{}\n"
                   "The goal of this level is the following:\n"
                   "{}\n"
@@ -45,34 +45,15 @@ PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "The following is the description of the game state as visible by GOOSE {}.\n"
                   "{}\n"
                   "The coordinates must be read as (row, col), i.e. (y, x).\n"
-                  "Please choose the next goal for GOOSE {},"
-                  "and describe it in a single sentence. "
-                  "Do not use absolute coordinates, rather relying on relative descriptions. Example valid commands:\n"
-                      "\"Press the button north of you.\"\n"
-                      "\"Stay on the button.\"\n"
-                      "\"Find and reach the goal.\"\n"
-                      "\"Go through an open door west of you.\"\n"
-                      "\"Find and reach the closed door.\"\n"
-                      "\"Honk and wait.\"\n\n"
-                  "Do not use complex commands, such as \"Go through the door and then reach the goal.\" Only provide the next course of action.")
-
-PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
-                  "{}\n"
-                  "Previous planner message was the following:\n"
-                  "{}\n"
-                  "The goal of this level is the following:\n"
-                  "{}\n"
-                  "Combined map built from all goose observations so far (? = not yet seen):\n"
-                  "{}\n"
-                  "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
-                  "(CLEAR = unobstructed path to goal; BLOCKED = closed door on all paths; UNKNOWN = not enough map information yet)\n"
-                  "Think step by step about what has changed and what each goose should do next. "
-                  "Then end your response with a single line: the updated planner message that keeps the key game state information.\n"
-                  "Example last lines:\n"
-                    "\"goose_2 is separate from the goal by a door. I need to keep goose_1 on the button at (5, 0) so that goose_2 can pass through the door at (1, 1).\"\n"
-                    "\"goose_1 is separate from the goal by a door. I need to test which button can open the door for goose_1. The button at (3,2) didn't work, "
-                      "therefore, the correct button is either at (3,4) or (5,5). I will now lead goose_1 to the button at (3,4), which is north of it.\"\n"
-                    "\"goose_2 has successfully passed the door. goose_1 must now ignore the button and navigate directly to the goal.\"\n")
+                  "Think step by step, then end your response with exactly two lines:\n"
+                  "INSTRUCTION: <next goal for GOOSE {} in one sentence, no absolute coordinates, relative descriptions only>\n"
+                  "NOTES: <one sentence summarising overall game state and plan for both geese>\n"
+                  "Example endings:\n"
+                  "INSTRUCTION: Press the button north of you.\n"
+                  "NOTES: goose_1 is holding the button at (5,0) which did not open the door; goose_2 is waiting west of the door at (2,4).\n"
+                  "---\n"
+                  "INSTRUCTION: Honk and wait.\n"
+                  "NOTES: goose_2 has passed through the door; goose_1 must now leave the button and head to the goal.\n")
 
 GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey the PLANNER commands.\n"
                        "Based on the planner message, you need to figure out how to move towards the indicated position "
@@ -302,6 +283,7 @@ class PlannerAgentImpl(PlannerAgent):
     def step(self) -> None:
         self._append_to_chat("Planner step executed.")
         combined_map = self._map_composer.get() or "No map yet."
+        self._append_to_chat(f"Combined map:\n{combined_map}")
         estimates = {
             gid: self._goal_estimator.estimate(
                 gid,
@@ -324,25 +306,18 @@ class PlannerAgentImpl(PlannerAgent):
                                                             goose_id,
                                                             self._last_reports[goose_id],
                                                             goose_id))
-            task = GooseAgentMessage(description=answer)
-            self._append_to_chat(f"Planner -> {goose_id}: {answer}")
-            result = goose.on_call(task)
+            lines = answer.strip().splitlines()
+            instruction = next((l.removeprefix("INSTRUCTION:").strip() for l in lines if l.startswith("INSTRUCTION:")), answer.strip().splitlines()[0])
+            notes = next((l.removeprefix("NOTES:").strip() for l in lines if l.startswith("NOTES:")), self._planner_notes)
+            self._planner_notes = notes
+            self._append_to_chat(f"Planner -> {goose_id}: {instruction}")
+            self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: {notes}")
+
+            result = goose.on_call(GooseAgentMessage(description=instruction))
             if result.error is not None:
                 self._append_to_chat(f"{goose_id} error: {result.error}")
             else:
                 self._append_to_chat(f"{goose_id} result: {result.output}")
                 self._memory.append((goose_id, result.output))
                 self._last_reports[goose_id] = result.output
-
-            self._planner_notes = get_model_answer(self._client,
-                                                   self._used_model,
-                                                   PLANNER_SYSTEM_PROMPT,
-                                                   PLANNER_OBS_PROMPT.format(self._memory[-4:],
-                                                                             self._planner_notes,
-                                                                             self._env.task_description,
-                                                                             self._map_composer.get() or "No map yet.",
-                                                                             estimates["goose_1"],
-                                                                             estimates["goose_2"]))
-            self._planner_notes = self._planner_notes.strip().split('\n')[-1].strip()
-            self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + self._planner_notes)
         self.turn_counter += 1
