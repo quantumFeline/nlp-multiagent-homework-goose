@@ -27,15 +27,6 @@ PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
                          "focus on pursuing the goal themselves.\n"
                          "Remember that a goose cannot hold the door for itself.\n"
                          "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n\n")
-                         # "Pro tip: A goose standing on a button cannot see it: its own marker hides the button, so it will report standing on an ordinary square. "
-                         # "Never wait for a goose to confirm it is on a button. Infer it from your own instructions: if you sent a goose toward a button "
-                         # "and its next report no longer shows that button in an adjacent square, assume it is now standing on the button and command it to "
-                         # "\"Stay on the button\" every turn until the other goose reports it has reached the goal.\n"
-                         # "A held button only keeps a door open while the goose remains on it, so the holding goose must Stay (honk) continuously; "
-                         # "do not move it away to pursue the goal until the other goose is confirmed at the goal.\n\n"
-                         # "Pro tip: treat progress as latching. Once you have established that a goose is holding a button, "
-                         # "or that a goose has passed through a door, record it and do not reverse it on the strength of a single later report unless that report plainly contradicts it. "
-                         # "Commit to one sub-goal per goose; do not alternate a goose between two goals on consecutive turns.\n")
 
 PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
@@ -129,6 +120,23 @@ GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "\"I am standing on the goal. Immediately north: empty. Immediately south: wall. "
                     "Immediately east: empty. Immediately west: wall. Also visible: none.\"\n")
 
+class MapComposer:
+    """Maintains a combined map built from partial goose observations via LLM merging."""
+
+    def __init__(self, client: OpenAI, model: str) -> None:
+        self._client = client
+        self._model = model
+        self._combined_map: str | None = None
+
+    def update(self, goose_id: str, raw_observation: str) -> None:
+        """Merge a new goose observation into the combined map."""
+        pass  # TODO
+
+    def get(self) -> str | None:
+        """Return the current combined map, or None if no observations yet."""
+        return self._combined_map
+
+
 def get_model_answer(client, model, system_prompt, user_prompt):
     answer = None
     while answer is None:
@@ -159,6 +167,7 @@ class GooseAgentImpl(GooseAgent):
         super().__init__(client, used_model, env, append_to_chat)
         self._append_to_chat(f"Initialized {env.goose_id}.")
         self.turn_counter = 0
+        self.map_composer: MapComposer | None = None  # set by planner after construction
 
     def on_call(self, message: GooseAgentMessage) -> GooseAgentResult:
         self._append_to_chat(f"Planner message: {message.description}")
@@ -193,9 +202,9 @@ class GooseAgentImpl(GooseAgent):
                 elif attempt == 2:
                     raise RuntimeError("Bad Gemma")
 
-        # positions = self._env.visible_goose_positions()
-        # self_state = self._env.describe_state()
-        # result = f"Visible positions: {positions}, self-state: {self_state}"
+        if self.map_composer is not None:
+            self.map_composer.update(self._env.goose_id, self._env.describe_state())
+
         goose_report = get_model_answer(self._client,
                                         self._used_model,
                                         GOOSE_OBS_SYSTEM_PROMPT.format(self._env.goose_id),
@@ -217,6 +226,9 @@ class PlannerAgentImpl(PlannerAgent):
         append_to_chat: ChatCallback,
     ) -> None:
         super().__init__(client, used_model, env, agents, append_to_chat)
+        self._map_composer = MapComposer(client, used_model)
+        for goose in self._agents.values():
+            goose.map_composer = self._map_composer
         self._memory = []
         self._last_reports: dict[str, str] = {
             gid: "No reports yet." for gid in self._agents
