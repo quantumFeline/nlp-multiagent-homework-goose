@@ -31,29 +31,32 @@ PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
                          "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n"
                          "If a goose is blocked by a closed door, instruct it to HONK and wait. Send the other goose to press buttons one by one until the door opens, tracking which buttons have been tried.\n\n")
 
-PLANNER_PROMPT = ("Previous goose reports were the following:\n"
-                  "{}\n"
-                  "Previous planner notes were the following:\n"
-                  "{}\n"
-                  "The goal of this level is the following:\n"
-                  "{}\n"
-                  "Combined map built from all goose observations so far (? = not yet seen):\n"
-                  "{}\n"
-                  "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
-                  "(CLEAR = unobstructed path to goal; BLOCKED = closed door on all paths; UNKNOWN = not enough map information yet)\n"
-                  "If a goose is BLOCKED, instruct it to HONK and wait, and send the other goose to press buttons until the door opens.\n"
-                  "The following is the description of the game state as visible by GOOSE {}.\n"
-                  "{}\n"
-                  "The coordinates must be read as (row, col), i.e. (y, x).\n"
-                  "Think step by step, then end your response with exactly two lines:\n"
-                  "INSTRUCTION: <next goal for GOOSE {} in one sentence, no absolute coordinates, relative descriptions only>\n"
-                  "NOTES: <one sentence summarising overall game state and plan for both geese>\n"
-                  "Example endings:\n"
-                  "INSTRUCTION: Press the button north of you.\n"
-                  "NOTES: goose_1 is holding the button at (5,0) which did not open the door; goose_2 is waiting west of the door at (2,4).\n"
-                  "---\n"
-                  "INSTRUCTION: Honk and wait.\n"
-                  "NOTES: goose_2 has passed through the door; goose_1 must now leave the button and head to the goal.\n")
+PLANNER_THINK_PROMPT = (
+    "Previous goose reports:\n{}\n"
+    "Previous planner notes:\n{}\n"
+    "Level goal: {}\n"
+    "Combined map (? = not yet seen):\n{}\n"
+    "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
+    "(CLEAR = unobstructed path; BLOCKED = closed door on every path; UNKNOWN = unobserved cells blocking view)\n"
+    "If a goose just became CLEAR that was previously BLOCKED, the door opened - update the plan accordingly.\n"
+    "Think step by step, then end with a single line:\n"
+    "NOTES: <one sentence summarising current game state and plan for both geese>\n"
+    "Example endings:\n"
+    "NOTES: goose_1 is holding the button at (5,0) but the door has not opened; will try the button at (3,0) next.\n"
+    "NOTES: door opened - both geese are now CLEAR and should head directly to the goal.\n"
+    "NOTES: goose_2 has passed through the door; goose_1 must leave the button and navigate to the goal.\n"
+)
+
+PLANNER_PROMPT = (
+    "Planner notes:\n{}\n"
+    "Level goal: {}\n"
+    "Game state as visible by GOOSE {}:\n{}\n"
+    "Based on the notes above, choose the single next action for GOOSE {}.\n"
+    "One sentence, relative directions only, no coordinates.\n"
+    "Example instructions: Press the button north of you. / Stay on the button. / "
+    "Find and reach the goal. / Honk and wait. / Go through the open door to the west.\n"
+    "End with: INSTRUCTION: <your instruction>\n"
+)
 
 GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey the PLANNER commands.\n"
                        "Based on the planner message, you need to figure out how to move towards the indicated position "
@@ -293,25 +296,30 @@ class PlannerAgentImpl(PlannerAgent):
             for gid in sorted(self._agents)
         }
         self._append_to_chat(f"Goal estimates: {estimates}")
+
+        think = get_model_answer(self._client, self._used_model,
+                                 PLANNER_SYSTEM_PROMPT,
+                                 PLANNER_THINK_PROMPT.format(self._memory[-4:],
+                                                             self._planner_notes,
+                                                             self._env.task_description,
+                                                             combined_map,
+                                                             estimates["goose_1"],
+                                                             estimates["goose_2"]))
+        notes_line = next((l.removeprefix("NOTES:").strip() for l in think.splitlines() if l.startswith("NOTES:")), self._planner_notes)
+        self._planner_notes = notes_line
+        self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: {self._planner_notes}")
+
         for goose_id, goose in sorted(self._agents.items()):
             answer = get_model_answer(self._client,
                                       self._used_model,
                                       PLANNER_SYSTEM_PROMPT,
-                                      PLANNER_PROMPT.format(self._memory[-4:],
-                                                            self._planner_notes,
+                                      PLANNER_PROMPT.format(self._planner_notes,
                                                             self._env.task_description,
-                                                            combined_map,
-                                                            estimates["goose_1"],
-                                                            estimates["goose_2"],
                                                             goose_id,
                                                             self._last_reports[goose_id],
                                                             goose_id))
-            lines = answer.strip().splitlines()
-            instruction = next((l.removeprefix("INSTRUCTION:").strip() for l in lines if l.startswith("INSTRUCTION:")), answer.strip().splitlines()[0])
-            notes = next((l.removeprefix("NOTES:").strip() for l in lines if l.startswith("NOTES:")), self._planner_notes)
-            self._planner_notes = notes
+            instruction = next((l.removeprefix("INSTRUCTION:").strip() for l in answer.splitlines() if l.startswith("INSTRUCTION:")), answer.strip().splitlines()[-1])
             self._append_to_chat(f"Planner -> {goose_id}: {instruction}")
-            self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: {notes}")
 
             result = goose.on_call(GooseAgentMessage(description=instruction))
             if result.error is not None:
