@@ -52,11 +52,11 @@ The geese frequently wander off the button or the goal, even if the planner requ
 
 ### Misreporting immediate surroundings
 
-Free-form natural language goose observations (e.g. "there is a button to the north-east") introduced spatial errors - the model would describe diagonal positions incorrectly or conflate adjacency with distance.
+Free-form natural language goose observations (e.g. "there is a button to the north-east") introduced spatial errors - the model would describe diagonal positions incorrectly or conflate adjacency with distance. An earlier attempt at a structured format ("Immediately north: X. Also visible: ...") still produced errors in the "Also visible" free-form section, where the model described non-adjacent cells with incorrect relative directions.
 
 **Solution:**
 
-* Replace free-form observation reports with a tightly structured single-line format: `standing_on=[goal/square] North=[symbol] South=[symbol] West=[symbol] East=[symbol]`. This limits the model's task to reading four adjacent symbols, which is reliable at this scale.
+* Drop free-form descriptions entirely. Replace with a tightly structured single-line format covering only the four directly adjacent cells: `standing_on=[goal/square] North=[symbol] South=[symbol] West=[symbol] East=[symbol]`. This limits the model's task to reading four adjacent symbols, which is reliable at this scale.
 * Apply **chain-of-thought prompting** across all LLM calls: the model is instructed to reason step by step, then end its response with a single line in a fixed format. Only the last line is parsed as the final answer, leaving reasoning free while keeping the extractable output unambiguous.
 
 ## Technical problems encountered

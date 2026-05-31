@@ -64,6 +64,8 @@ PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
                   "Combined map built from all goose observations so far (? = not yet seen):\n"
                   "{}\n"
+                  "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
+                  "(CLEAR = unobstructed path to goal; BLOCKED = closed door on all paths; UNKNOWN = not enough map information yet)\n"
                   "Think step by step about what has changed and what each goose should do next. "
                   "Then end your response with a single line: the updated planner message that keeps the key game state information.\n"
                   "Example last lines:\n"
@@ -82,10 +84,12 @@ GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey t
                        "Map legend: " + MAP_LEGEND
                        + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
                        + "The coordinates must be read as (row, col), i.e. (y, x).\n"
+                       + "Cells beyond the map boundary are walls (#).\n"
                        + "Reason about positions only relative to yourself (compass directions and distances in squares). "
                          "Do not use numeric coordinates.\n")
 GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "{}\n"
+                "You are at row {}, col {}.\n"
                 "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
                 "{}\n"
                 "If the map shows * at your current position (i.e., you cannot see your own X/Y symbol), you are standing on the goal. "
@@ -96,11 +100,12 @@ GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
 
 GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and pass useful information to the planner.\n"
                            "Map legend: " + MAP_LEGEND
-                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n")
+                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
+                           + "Cells beyond the map boundary are walls (#). Treat them as # without further comment.\n")
 GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "{}\n"
-                    "Find your own marker (X if you are goose_1, Y if you are goose_2). "
-                    "Think step by step: locate your marker, then read the symbol in each directly adjacent cell.\n"
+                    "You are at row {}, col {}. "
+                    "Read the symbol in each directly adjacent cell.\n"
                     "End your response with a single line in this exact format:\n"
                     "standing_on=[symbol] North=[symbol] South=[symbol] West=[symbol] East=[symbol]\n"
                     "Example last line: standing_on=. North=. South=@ West=# East=.\n"
@@ -135,15 +140,16 @@ MAP_COMPOSER_MERGE_PROMPT = (
 
 GOAL_ESTIMATOR_SYSTEM_PROMPT = (
     "You are analyzing a game map to determine if a goose can reach the goal.\n"
-    "Map symbols: " + MAP_LEGEND
-    + "A goose is BLOCKED if there is a closed door ($) on every path between it and the goal (*).\n"
-    "A goose is UNKNOWN if there are unobserved cells (?) between it and the goal that may or may not contain obstacles.\n"
-    "A goose is CLEAR if there is at least one path to the goal with no closed doors or walls.\n"
+    "Map symbols: " + MAP_LEGEND +
+    "A goose is CLEAR if there is at least one path to the goal with no closed doors ($) or walls (#).\n"
+    "A goose is BLOCKED if there is a closed door ($) or wall (#) on every path between it and the goal (*).\n"
+    "A goose is UNKNOWN if it is not CLEAR and there are unobserved cells (?) between it and the goal that may or may not contain obstacles.\n"
     "Think step by step, then end your response with exactly one word on its own line: CLEAR, BLOCKED, or UNKNOWN.\n"
 )
 
 GOAL_ESTIMATOR_PROMPT = (
     "Combined map:\n{}\n"
+    "{} is at row {}, col {}.\n"
     "Can {} reach the goal (*)?\n"
     "Think step by step, then end with CLEAR, BLOCKED, or UNKNOWN."
 )
@@ -156,12 +162,13 @@ class GoalEstimator:
         self._client = client
         self._model = model
 
-    def estimate(self, goose_id: str, combined_map: str) -> str:
+    def estimate(self, goose_id: str, combined_map: str, position: tuple | None) -> str:
         """Return CLEAR, BLOCKED, or UNKNOWN for the given goose."""
+        row, col = position if position is not None else (-1, -1)
         answer = get_model_answer(
             self._client, self._model,
             GOAL_ESTIMATOR_SYSTEM_PROMPT,
-            GOAL_ESTIMATOR_PROMPT.format(combined_map, goose_id),
+            GOAL_ESTIMATOR_PROMPT.format(combined_map, goose_id, row, col, goose_id),
         )
         last = answer.strip().split('\n')[-1].strip().upper()
         if last in ("CLEAR", "BLOCKED", "UNKNOWN"):
@@ -193,12 +200,7 @@ class MapComposer:
 
 
 def get_model_answer(client, model, system_prompt, user_prompt):
-    answer = None
-    while answer is None:
-        # model_response = client.responses.create(
-        #     model=model,
-        #     input=prompt
-        # )
+    while True:
         try:
             model_response = client.chat.completions.create(
                 model=model,
@@ -207,17 +209,18 @@ def get_model_answer(client, model, system_prompt, user_prompt):
                     {"role": "user", "content": user_prompt}
                 ]
             )
-            if not model_response.choices:
-                print("Retrying: empty choices in response.")
+            content = model_response.choices[0].message.content if model_response.choices else None
+            if not content:
+                print("Retrying: empty response, sleeping 5s.")
+                time.sleep(5)
                 continue
-            answer = model_response.choices[0].message.content
+            return content
         except openai.RateLimitError:
             print("Retrying: rate limit hit, sleeping 60s.")
             time.sleep(60)
         except Exception:
             traceback.print_exc()
             raise
-    return answer
 
 class GooseAgentImpl(GooseAgent):
     def __init__(self, client: OpenAI, used_model: str, env: GooseEnvironment, append_to_chat: ChatCallback) -> None:
@@ -235,10 +238,11 @@ class GooseAgentImpl(GooseAgent):
             self._env.honk(1)
         else:
             for attempt in range(3):
+                pos = self._env.visible_goose_positions().get(self._env.goose_id, (-1, -1))
                 answer = get_model_answer(self._client,
                                           self._used_model,
                                           GOOSE_SYSTEM_PROMPT.format(self._env.goose_id),
-                                          GOOSE_PROMPT.format(self._env.describe_state(), message.description))
+                                          GOOSE_PROMPT.format(self._env.describe_state(), pos[0], pos[1], message.description))
                 self._append_to_chat("Goose move: " + answer)
                 last = answer.strip().split('\n')[-1].strip().lower()
                 if last == "up":
@@ -262,11 +266,11 @@ class GooseAgentImpl(GooseAgent):
         if self.map_composer is not None:
             self.map_composer.update(self._env.goose_id, self._env.describe_state())
 
+        pos = self._env.visible_goose_positions().get(self._env.goose_id, (-1, -1))
         goose_report = get_model_answer(self._client,
                                         self._used_model,
                                         GOOSE_OBS_SYSTEM_PROMPT.format(self._env.goose_id),
-                                        GOOSE_OBS_PROMPT.format(self._env.describe_state()))
-        #goose_report = f"My position is {self._env.visible_goose_positions()[self._env.goose_id]}. {goose_report}"
+                                        GOOSE_OBS_PROMPT.format(self._env.describe_state(), pos[0], pos[1]))
 
         self._append_to_chat(f"Turn {self.turn_counter}. GooseAgent answer: {goose_report}")
         self.turn_counter += 1
@@ -299,7 +303,11 @@ class PlannerAgentImpl(PlannerAgent):
         self._append_to_chat("Planner step executed.")
         combined_map = self._map_composer.get() or "No map yet."
         estimates = {
-            gid: self._goal_estimator.estimate(gid, combined_map)
+            gid: self._goal_estimator.estimate(
+                gid,
+                combined_map,
+                self._agents[gid]._env.visible_goose_positions().get(gid),
+            )
             for gid in sorted(self._agents)
         }
         self._append_to_chat(f"Goal estimates: {estimates}")
@@ -317,7 +325,7 @@ class PlannerAgentImpl(PlannerAgent):
                                                             self._last_reports[goose_id],
                                                             goose_id))
             task = GooseAgentMessage(description=answer)
-            self._append_to_chat(f"Calling {goose_id}.")
+            self._append_to_chat(f"Planner -> {goose_id}: {answer}")
             result = goose.on_call(task)
             if result.error is not None:
                 self._append_to_chat(f"{goose_id} error: {result.error}")
@@ -332,7 +340,9 @@ class PlannerAgentImpl(PlannerAgent):
                                                    PLANNER_OBS_PROMPT.format(self._memory[-4:],
                                                                              self._planner_notes,
                                                                              self._env.task_description,
-                                                                             self._map_composer.get() or "No map yet."))
+                                                                             self._map_composer.get() or "No map yet.",
+                                                                             estimates["goose_1"],
+                                                                             estimates["goose_2"]))
             self._planner_notes = self._planner_notes.strip().split('\n')[-1].strip()
             self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + self._planner_notes)
         self.turn_counter += 1
