@@ -35,7 +35,6 @@ PLANNER_THINK_PROMPT = (
     "Previous goose reports:\n{}\n"
     "Previous planner notes:\n{}\n"
     "Level goal: {}\n"
-    "Combined map (? = not yet seen):\n{}\n"
     "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
     "(CLEAR = unobstructed path; BLOCKED = closed door on every path; UNKNOWN = unobserved cells blocking view)\n"
     "If a goose just became CLEAR that was previously BLOCKED, the door opened - update the plan accordingly.\n"
@@ -302,7 +301,6 @@ class PlannerAgentImpl(PlannerAgent):
                                  PLANNER_THINK_PROMPT.format(self._memory[-4:],
                                                              self._planner_notes,
                                                              self._env.task_description,
-                                                             combined_map,
                                                              estimates["goose_1"],
                                                              estimates["goose_2"]))
         notes_line = next((l.removeprefix("NOTES:").strip() for l in think.splitlines() if l.startswith("NOTES:")), self._planner_notes)
