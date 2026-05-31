@@ -208,9 +208,11 @@ def get_model_answer(client, model, system_prompt, user_prompt):
                 ]
             )
             if not model_response.choices:
-                continue # retry
+                print("Retrying: empty choices in response.")
+                continue
             answer = model_response.choices[0].message.content
         except openai.RateLimitError:
+            print("Retrying: rate limit hit, sleeping 60s.")
             time.sleep(60)
         except Exception:
             traceback.print_exc()
