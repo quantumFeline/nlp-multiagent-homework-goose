@@ -89,26 +89,16 @@ GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
 
 GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and pass useful information to the planner.\n"
                            "Map legend: " + MAP_LEGEND
-                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
-                           + "The coordinates must be read as (row, col), i.e. (y, x).\n")
+                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n")
 GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "{}\n"
-                    "Find your own marker in the map (X if you are goose_1, Y if you are goose_2); "
-                    "that square is where you are standing. Describe everything else relative to it - "
-                    "compass direction and how many squares away. Do not use numeric coordinates.\n"
-                    "Pass the key information to the planner in this format:\n"
-                    "\"I am standing on [the goal / an ordinary square]. Immediately north: [symbol]. "
-                    "Immediately south: [symbol]. Immediately east: [symbol]. Immediately west: [symbol]. "
-                    "Also visible: [relative description].\"\n"
-                    "Example descriptions:\n"
-                    "\"I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. "
-                    "Immediately east: wall. Immediately west: empty. Also visible: a button two squares to the "
-                    "north-east; the path south toward the goal looks clear.\"\n"
-                    "\"I am standing on an ordinary square. Immediately north: open door. Immediately south: empty. "
-                    "Immediately east: empty. Immediately west: goose_2. Also visible: the goal lies just north of "
-                    "the open door.\"\n"
-                    "\"I am standing on the goal. Immediately north: empty. Immediately south: wall. "
-                    "Immediately east: empty. Immediately west: wall. Also visible: none.\"\n")
+                    "Find your own marker (X if you are goose_1, Y if you are goose_2). "
+                    "Report the symbol in each of the four cells directly adjacent to you, "
+                    "and whether you are standing on the goal or an ordinary square.\n"
+                    "Use this exact format (one line):\n"
+                    "standing_on=[goal/square] North=[symbol] South=[symbol] West=[symbol] East=[symbol]\n"
+                    "Example: standing_on=square North=. South=@ West=# East=.\n"
+                    "Example: standing_on=goal North=. South=# West=. East=.\n")
 
 MAP_COMPOSER_SYSTEM_PROMPT = (
     "You are a map merger for a grid-based game. "
