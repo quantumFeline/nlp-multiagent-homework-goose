@@ -1,0 +1,215 @@
+Initialized planner for level: Button Rescue.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (1, 0). There is a button directly south of me at (2, 0) and a wall to my east at (1, 3). Goose 2 is located at (1, 5). There is a closed door at (3, 5) and the goal is located at (4, 3).
+
+Planner notes: I need to keep goose_1 on the button at (2, 0) so that goose_2 can pass through the closed door at (3, 5) and reach the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (2, 5). There is a wall to my west at (2, 3), a closed door south of me at (3, 5), and another goose at (1, 0). There is a button at (2, 0) and the goal is located at (4, 3).
+
+Planner notes: I need to keep goose_1 on the button at (2, 0) so that goose_2 can pass through the closed door at (3, 5) and reach the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to the east of me at (2, 3) and another goose east at (2, 5). There is a goal south of me at (4, 3), but it is blocked by walls at (3, 3) and (3, 4), with an open door at (3, 5).
+
+Planner notes: I need to keep goose_1 on the button at (2, 0) so that goose_2 can pass through the door at (3, 5) and reach the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (3, 5). There are walls to my east at (3, 6), (3, 7), and to my west at (3, 4). There are also walls to my north at (3, 3) and (3, 4) relative to the map layout, but specifically looking at my position, I am enclosed by walls at (3, 4) and (3, 6). There is another goose (goose_1) located at (2, 0) and the goal is at (4, 3).
+
+Planner notes: goose_2 has successfully passed through the door at (3, 5) and is now navigating toward the goal at (4, 3). goose_1 must remain on the button at (2, 0) until goose_2 reaches the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to my east at (2, 3). The goal is located south of me at (4, 3), and goose_2 is located at (3, 5).
+
+Planner notes: "I need to keep goose_1 on the button at (2, 0) so that goose_2 can pass through the door at (3, 5) and reach the goal at (4, 3)."
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 5). There is a goal at (4, 3) and an open door to my northwest at (3, 4). Goose 1 is located at (2, 0).
+
+Planner notes: "goose_2 has passed through the door and is moving toward the goal at (4, 3). Once goose_2 reaches the goal and honks, goose_1 must move from the button at (2, 0) to the goal at (4, 3)."
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (3, 0). There is a button north of me at (2, 0). There is a wall to my east at (3, 3) and further east at (3, 4). There is a closed door at (3, 5) blocked by walls at (3, 4) and (3, 6). The goal is located at (4, 3), and goose_2 is located at (4, 5).
+
+Planner notes: I need to keep goose_1 on the button at (2, 0) to keep the door at (3, 5) open, allowing goose_2 to pass through and reach the goal at (4, 3). Once goose_2 reaches the goal, goose_1 can then leave the button and navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is a closed door to my northwest at (3, 5), and another goose, goose_1, is located at (3, 0). There is a button at (2, 0).
+
+Planner notes: goose_2 has reached the goal at (4, 4) (marked as (4, 3) in some reports). goose_1 is currently at (3, 0) and no longer needs to hold the button at (2, 0) since goose_2 has already passed through the door. goose_1 must now navigate to the goal at (4, 3/4) and honk.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to my east at (2, 3). There is an open door at (3, 5) and the goal is at (4, 3), where goose_2 is currently located.
+
+Planner notes: goose_2 has reached the goal at (4, 3). goose_1 is currently on the button at (2, 0) and must now navigate to the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is an open door north of me at (3, 4) and another goose (goose_1) northwest at (2, 0).
+
+Planner notes: goose_2 has reached the goal at (4, 4) and must honk. goose_1 is no longer needed on the button at (2, 0) since the door at (3, 5) is open (or goose_2 has already passed it), and must now navigate to the goal at (4, 4).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (3, 0). There is a button north of me at (2, 0) and walls to my east at (3, 3) and (3, 4). There is a closed door at (3, 5) and the goal is located at (4, 3), where goose_2 is currently nearby at (4, 4).
+
+Planner notes: goose_2 is already at the goal at (4, 4) and has reported that the door at (3, 5) is open. goose_1 is at (3, 0) and needs to navigate to the goal at (4, 4). goose_1 should move toward the goal while goose_2 waits to honk.
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is a closed door to my northwest at (3, 5) and another goose, goose_1, at (3, 0). There is a button at (2, 0).
+
+Planner notes: goose_2 is at the goal at (4, 4). goose_1 is at (3, 0) and needs to reach the goal, but there is a closed door at (3, 5). goose_1 must first move to the button at (2, 0) to open the door, though since goose_2 is already past the door and at the goal, goose_1 simply needs to navigate to (4, 4) while goose_2 waits to honk.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to my east at (2, 3). To the south, there is an open door at (3, 4) and the goal at (4, 3), where goose 2 is currently located at (4, 4).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 4). goose_1 is currently at (2, 0) and must now navigate to the goal at (4, 4). Since goose_2 is already at the goal, goose_1 no longer needs to hold the button at (2, 0).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is an open door to my north at (3, 4), and goose_1 is located at (2, 0).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 4). goose_1 is currently at (2, 0) and must now navigate to the goal at (4, 4). Since the door is open and goose_2 is already at the goal, goose_1 no longer needs to hold the button at (2, 0).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (3, 0). There is a button to my north at (2, 0). There are walls to my east starting at (3, 3), and a closed door at (3, 5). The goal is at (4, 3), where goose_2 is currently located at (4, 4).
+
+Planner notes: goose_2 has already reached the goal at (4, 4). goose_1 needs to move to the button at (2, 0) to open the door at (3, 5) (though goose_2 is already past it), and then goose_1 must navigate to the goal at (4, 3). Since goose_2 is already at the goal, goose_2 should HONK.
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is a closed door to the north at (3, 5) and a wall to the north at (3, 4). Goose 1 is located at (3, 0), and there is a button at (2, 0).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 4) and should HONK. goose_1 is at (3, 0) and must navigate to the goal at (4, 3). Since the door at (3, 5) is currently closed, goose_1 may need to interact with the button at (2, 0) if it blocks the path to the goal, then proceed to (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to my east at (2, 3). There is an open door at (3, 5), and goose_2 is at (4, 4), which is directly to the east of the goal located at (4, 3).
+
+Planner notes: goose_2 has already reached the goal at (4, 4) (or is adjacent to (4, 3)). goose_1 is currently on the button at (2, 0), which has opened the door at (3, 5) for goose_2. Since goose_2 is already past the door and at the goal, goose_1 no longer needs to hold the button and must now navigate to the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 4). I am standing directly at the goal. There is an open door north of me at (3, 4), and goose 1 is located at (2, 0).
+
+Planner notes: goose_2 is at the goal at (4, 3) (or immediately adjacent at (4, 4)). Since the door at (3, 5) is open and goose_2 has reached the target area, goose_1 no longer needs to hold the button at (2, 0) and must now navigate to the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 1). There is a button directly to my west at (2, 0) and a wall to my east at (2, 3). There are also walls north of me at (0, 3) and (1, 3), and a wall south of me at (3, 3). A closed door is located at (3, 5), and the goal is at (4, 3) where goose_2 is currently nearby at (4, 4).
+
+Planner notes: "goose_2 is at the goal at (4, 4) but must honk. goose_1 is at (2, 1) and needs to stand on the button at (2, 0) to ensure the door at (3, 5) remains open (though reports on the door's state vary), then both must reach the goal and honk."
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3), which is the goal. There is a wall to the north of me at (3, 3), and another goose (goose_1) is located at (2, 1). A button is visible at (2, 0) and a closed door is located at (3, 5).
+
+Planner notes: "goose_2 has reached the goal at (4, 3) and must HONK. goose_1 is at (2, 1) and needs to navigate to the goal at (4, 3)."
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to the east of me at (2, 3). There is an open door at (3, 4) and the goal is located at (4, 3), where goose_2 is currently standing.
+
+Planner notes: goose_2 has successfully reached the goal at (4, 3). goose_1 is currently at (2, 0) and must now navigate to the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3). I am standing directly at the goal. There is a wall north of me at (3, 3) and a wall south of me at (5, 3) (edge of map). There is another goose (goose_1) northwest of me at (2, 0). There is an open door north of me at (3, 4).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 3) and should HONK. goose_1 is at (2, 0) and must now navigate to the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (3, 0). There is a button to my north at (2, 0). To my east, there are walls at (3, 3), (3, 4), (3, 6), and (3, 7), with a closed door at (3, 5). The goal is located south of me at (4, 3), where goose_2 is currently positioned.
+
+Planner notes: goose_2 is already at the goal at (4, 3). goose_1 needs to move from (3, 0) to the goal at (4, 3). Since goose_2 is already at the goal and no longer needs a door open, goose_1 can proceed directly to (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3). I am standing directly at the goal. There is a closed door to my north at (3, 5) and walls to my north at (3, 3) and (3, 4). Another goose is located at (3, 0), and there is a button at (2, 0).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 3). goose_1 is at (3, 0) and must now navigate to the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to the east of me at (2, 3) and an open door further east at (3, 5). The goal is located at (4, 3), where goose_2 is currently positioned.
+
+Planner notes: goose_2 has reached the goal at (4, 3) and must honk. goose_1 is at (2, 0) and needs to navigate to the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3). I am standing directly at the goal. There is an open door north of me at (3, 4) and another goose at (2, 0).
+
+Planner notes: goose_2 has reached the goal at (4, 3) and must honk. The door at (3, 5) is now open, so goose_1 must navigate from (2, 0) to the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (3, 0). There is a button north of me at (2, 0). To my east, there are walls at (3, 3) and (3, 4). There is a closed door at (3, 5) flanked by walls at (3, 6) and (3, 7). The goal is located south of me at (4, 3), where goose_2 is currently positioned.
+
+Planner notes: "goose_2 has reached the goal at (4, 3). goose_1 is at (3, 0) and needs to move to the button at (2, 0) to open the door for goose_2 if needed, but since goose_2 is already at the goal, goose_1 must now navigate to the goal at (4, 3)."
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3). I am standing directly at the goal. There is a closed door to the north at (3, 5), a button at (2, 0), and another goose west of me at (3, 0).
+
+Planner notes: "goose_2 has successfully reached the goal at (4, 3) and must honk. goose_1 is at (3, 0) and must now navigate to the goal at (4, 3)."
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am at (2, 0). There is a wall to my east at (2, 3) and a row of walls with an open door at (3, 4) further south. Goose 2 is currently standing on the goal at (4, 3).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 3). goose_1 is currently at (2, 0) and needs to navigate to the goal at (4, 3).
+
+Calling goose_2.
+
+goose_2 result: I am at (4, 3). I am standing directly at the goal. There is a wall to my north at (3, 3) and another goose, goose_1, located at (2, 0).
+
+Planner notes: goose_2 has successfully reached the goal at (4, 3) and should honk. goose_1 is currently at (2, 0) and must now navigate to the goal at (4, 3).
+
+Planner step executed.
+
+Calling goose_1.

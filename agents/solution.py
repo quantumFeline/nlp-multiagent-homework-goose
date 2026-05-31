@@ -8,6 +8,8 @@ from agents.base import ChatCallback, GooseAgent, GooseAgentMessage, GooseAgentR
 from goose_game.environment import GooseEnvironment, PlannerEnvironment
 from goose_game.models import Direction
 
+MAP_LEGEND = "# wall  . empty  * goal  @ button  $ closed door  / open door  ? unknown  X goose_1  Y goose_2\n"
+
 PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
                          "The game is a puzzle where both geese need to reach the goal. However, they might have to solve intermediate tasks in order to achieve that.\n"
                          "Your task so to coordinate the geese so that both of them reach the goal marked with * and honk when standing on it.\n"
@@ -34,6 +36,8 @@ PLANNER_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
                   "The goal of this level is the following:\n"
                   "{}\n"
+                  "Combined map built from all goose observations so far (? = not yet seen):\n"
+                  "{}\n"
                   "The following is the description of the game state as visible by GOOSE {}.\n"
                   "{}\n"
                   "The coordinates must be read as (row, col), i.e. (y, x).\n"
@@ -54,6 +58,8 @@ PLANNER_OBS_PROMPT = ("Previous goose reports were the following:\n"
                   "{}\n"
                   "The goal of this level is the following:\n"
                   "{}\n"
+                  "Combined map built from all goose observations so far (? = not yet seen):\n"
+                  "{}\n"
                   "Return the updated planner message that keeps the key game state information. Example messages:\n"
                     "\"goose_2 is separate from the goal by a door. I need to keep goose_1 on the button at (5, 0) so that goose_2 can pass through the door at (1, 1).\"\n"
                     "\"goose_1 is separate from the goal by a door. I need to test which button can open the door for goose_1. The button at (3,2) didn't work, "
@@ -67,19 +73,11 @@ GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey t
                        "The move may be UP (north), DOWN (south), LEFT (west), RIGHT (east), or HONK (stay).\n"
                        "HONK is the move you should use if you want to do nothing. It is analogous to \"stay\", \"wait\", or \"hold\".\n"
                        "It is also the command both geese need to execute to successfully finish the game.\n"
-                        "Here is how to read the game map legend:\n"
-                        "# wall\n"
-                        ". empty square\n"
-                        "* goal (also shown when YOU are standing on it)\n"
-                        "@ button\n"
-                        "`$` closed door\n"
-                        "`/` open door\n"
-                        "`?` unknown\n"
-                        "`X` goose 1\n"
-                        "`Y` goose 2\n"
-                            "The coordinates must be read as (row, col), i.e. (y, x).\n"
-                            "Reason about positions only relative to yourself - compass directions and distances in squares. "
-                            "Do not use numeric coordinates.\n")
+                       "Map legend: " + MAP_LEGEND
+                       + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
+                       + "The coordinates must be read as (row, col), i.e. (y, x).\n"
+                       + "Reason about positions only relative to yourself (compass directions and distances in squares). "
+                         "Do not use numeric coordinates.\n")
 GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "{}\n"
                 "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
@@ -90,17 +88,9 @@ GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
                 "Otherwise, please choose your next turn: UP, DOWN, LEFT, RIGHT, or HONK. Print your next move only.\n")
 
 GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and pass useful information to the planner.\n"
-                        "Here is how to read the game map legend:\n"
-                        "# wall\n"
-                        ". empty square\n"
-                        "* goal (also shown when YOU are standing on it)\n"
-                        "@ button\n"
-                        "`$` closed door\n"
-                        "`/` open door\n"
-                        "`?` unknown\n"
-                        "`X` goose 1\n"
-                        "`Y` goose 2\n"
-                           "The coordinates must be read as (row, col), i.e. (y, x).\n")
+                           "Map legend: " + MAP_LEGEND
+                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
+                           + "The coordinates must be read as (row, col), i.e. (y, x).\n")
 GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "{}\n"
                     "Find your own marker in the map (X if you are goose_1, Y if you are goose_2); "
@@ -120,6 +110,33 @@ GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
                     "\"I am standing on the goal. Immediately north: empty. Immediately south: wall. "
                     "Immediately east: empty. Immediately west: wall. Also visible: none.\"\n")
 
+MAP_COMPOSER_SYSTEM_PROMPT = (
+    "You are a map merger for a grid-based game. "
+    "You receive a combined map built so far and a new partial observation, and output an updated combined map.\n"
+    "Map symbols: " + MAP_LEGEND
+    + "Merging rules:\n"
+    "- ? means the cell was not yet observed. Replace ? with the new observation's value if it is known there.\n"
+    "- Static elements (#, ., *, @, $, /) once known never revert to ?. Keep them from the combined map even "
+    "if the new observation shows ? there.\n"
+    "- Goose positions (X, Y) are dynamic. Always take them from the new observation, not the old combined map.\n"
+    "- If a cell is known in both maps and they disagree on a static element, trust the new observation "
+    "(doors can open or close).\n"
+    "Output ONLY the updated grid, row by row, with no extra text, explanation, or blank lines.\n"
+)
+
+MAP_COMPOSER_FIRST_PROMPT = (
+    "This is the first observation. Output it as-is as the initial combined map.\n"
+    "Observation:\n{}\n"
+    "Output ONLY the grid."
+)
+
+MAP_COMPOSER_MERGE_PROMPT = (
+    "Current combined map:\n{}\n\n"
+    "New observation from {}:\n{}\n\n"
+    "Output the updated combined map. ONLY the grid, no other text."
+)
+
+
 class MapComposer:
     """Maintains a combined map built from partial goose observations via LLM merging."""
 
@@ -130,7 +147,13 @@ class MapComposer:
 
     def update(self, goose_id: str, raw_observation: str) -> None:
         """Merge a new goose observation into the combined map."""
-        pass  # TODO
+        if self._combined_map is None:
+            prompt = MAP_COMPOSER_FIRST_PROMPT.format(raw_observation)
+        else:
+            prompt = MAP_COMPOSER_MERGE_PROMPT.format(self._combined_map, goose_id, raw_observation)
+        self._combined_map = get_model_answer(
+            self._client, self._model, MAP_COMPOSER_SYSTEM_PROMPT, prompt
+        )
 
     def get(self) -> str | None:
         """Return the current combined map, or None if no observations yet."""
@@ -246,6 +269,7 @@ class PlannerAgentImpl(PlannerAgent):
                                       PLANNER_PROMPT.format(self._memory[-4:],
                                                             self._planner_notes,
                                                             self._env.task_description,
+                                                            self._map_composer.get() or "No map yet.",
                                                             goose_id,
                                                             self._last_reports[goose_id],
                                                             goose_id))
@@ -264,6 +288,7 @@ class PlannerAgentImpl(PlannerAgent):
                                                    PLANNER_SYSTEM_PROMPT,
                                                    PLANNER_OBS_PROMPT.format(self._memory[-4:],
                                                                              self._planner_notes,
-                                                                             self._env.task_description))
+                                                                             self._env.task_description,
+                                                                             self._map_composer.get() or "No map yet."))
             self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: " + self._planner_notes)
         self.turn_counter += 1

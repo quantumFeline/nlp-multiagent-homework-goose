@@ -1,0 +1,85 @@
+Initialized goose_1.
+
+Planner message: Find and reach the button.
+
+Goose move: LEFT
+
+Turn 0. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button south; a wall to the east; goose_2 far to the east; the goal south-east; a closed door far south-east.
+
+Planner message: Press the button south of you.
+
+Goose move: DOWN
+
+Turn 1. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south and one square east.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 2. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Planner message: Press the button two squares to the north of you.
+
+Goose move: UP
+
+Turn 3. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; another goose (Y) four squares to the east; an open door two squares south and three squares east; the goal two squares south.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 4. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; a wall three squares to the east; the goal one square south and one square east; goose_2 three squares north-east; a closed door four squares to the east.
+
+Planner message: Press the button two squares to the north.
+
+Goose move: UP
+
+Turn 5. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; goose_2 four squares to the east; an open door south-east; the goal two squares south.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 6. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Planner message: Press the button two squares to the north of you.
+
+Goose move: UP
+
+Turn 7. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south; goose_2 is four squares to the east; an open door is one square south and four squares east.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 8. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Planner message: Press the button two squares to the north of you.
+
+Goose move: UP
+
+Turn 9. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south; goose_2 is four squares to the east; an open door is one square south and three squares east.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 10. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Planner message: Press the button two squares to the north of you.
+
+Goose move: UP
+
+Turn 11. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; goose_2 four squares to the east; the goal two squares south.
+
+Planner message: Find and reach the goal.
+
+Goose move: DOWN
+
+Turn 12. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north-west; the goal is one square south and one square east; a closed door is three squares to the east; goose_2 is one square north and three squares east.
+
+Planner message: Press the button north-west of you.
+
+Goose move: UP
+
+Turn 13. GooseAgent answer: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares to the south; goose_2 is four squares to the east.

@@ -1,0 +1,95 @@
+Initialized goose_1.
+
+Planner message: Find and reach the button to open the door for the other goose.
+
+Goose move: LEFT
+
+GooseAgent answer: I am at (1, 0). There is a button directly south of me at (2, 0) and a wall to my east at (1, 3). Goose 2 is located at (1, 5). There is a closed door at (3, 5) and the goal is located at (4, 3).
+
+Planner message: Press the button directly south of you.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (2, 0). There is a wall to the east of me at (2, 3) and another goose east at (2, 5). There is a goal south of me at (4, 3), but it is blocked by walls at (3, 3) and (3, 4), with an open door at (3, 5).
+
+Planner message: Stay on the button you are currently pressing to keep the door open for Goose 2.
+
+Goose move: HONK
+
+GooseAgent answer: I am at (2, 0). There is a wall to my east at (2, 3). The goal is located south of me at (4, 3), and goose_2 is located at (3, 5).
+
+Planner message: Find and stand on the button to open the door for goose_2.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (3, 0). There is a button north of me at (2, 0). There is a wall to my east at (3, 3) and further east at (3, 4). There is a closed door at (3, 5) blocked by walls at (3, 4) and (3, 6). The goal is located at (4, 3), and goose_2 is located at (4, 5).
+
+Planner message: Press the button north of you.
+
+Goose move: UP
+
+GooseAgent answer: I am at (2, 0). There is a wall to my east at (2, 3). There is an open door at (3, 5) and the goal is at (4, 3), where goose_2 is currently located.
+
+Planner message: Find and reach the goal located southeast of you.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (3, 0). There is a button north of me at (2, 0) and walls to my east at (3, 3) and (3, 4). There is a closed door at (3, 5) and the goal is located at (4, 3), where goose_2 is currently nearby at (4, 4).
+
+Planner message: Press the button north of you.
+
+Goose move: UP
+
+GooseAgent answer: I am at (2, 0). There is a wall to my east at (2, 3). To the south, there is an open door at (3, 4) and the goal at (4, 3), where goose 2 is currently located at (4, 4).
+
+Planner message: Go through the open door south of you and reach the goal.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (3, 0). There is a button to my north at (2, 0). There are walls to my east starting at (3, 3), and a closed door at (3, 5). The goal is at (4, 3), where goose_2 is currently located at (4, 4).
+
+Planner message: Press the button to your north.
+
+Goose move: UP
+
+GooseAgent answer: I am at (2, 0). There is a wall to my east at (2, 3). There is an open door at (3, 5), and goose_2 is at (4, 4), which is directly to the east of the goal located at (4, 3).
+
+Planner message: Go to the goal located to your east.
+
+Goose move: RIGHT
+
+GooseAgent answer: I am at (2, 1). There is a button directly to my west at (2, 0) and a wall to my east at (2, 3). There are also walls north of me at (0, 3) and (1, 3), and a wall south of me at (3, 3). A closed door is located at (3, 5), and the goal is at (4, 3) where goose_2 is currently nearby at (4, 4).
+
+Planner message: Press the button directly to your west.
+
+Goose move: LEFT
+
+GooseAgent answer: I am at (2, 0). There is a wall to the east of me at (2, 3). There is an open door at (3, 4) and the goal is located at (4, 3), where goose_2 is currently standing.
+
+Planner message: Find and reach the goal southeast of you.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (3, 0). There is a button to my north at (2, 0). To my east, there are walls at (3, 3), (3, 4), (3, 6), and (3, 7), with a closed door at (3, 5). The goal is located south of me at (4, 3), where goose_2 is currently positioned.
+
+Planner message: Press the button to your north.
+
+Goose move: UP
+
+GooseAgent answer: I am at (2, 0). There is a wall to the east of me at (2, 3) and an open door further east at (3, 5). The goal is located at (4, 3), where goose_2 is currently positioned.
+
+Planner message: Find and reach the goal south of you.
+
+Goose move: DOWN
+
+GooseAgent answer: I am at (3, 0). There is a button north of me at (2, 0). To my east, there are walls at (3, 3) and (3, 4). There is a closed door at (3, 5) flanked by walls at (3, 6) and (3, 7). The goal is located south of me at (4, 3), where goose_2 is currently positioned.
+
+Planner message: Press the button north of you.
+
+Goose move: UP
+
+GooseAgent answer: I am at (2, 0). There is a wall to my east at (2, 3) and a row of walls with an open door at (3, 4) further south. Goose 2 is currently standing on the goal at (4, 3).
+
+Planner message: Press the button you are currently standing on and wait for goose_2 to honk.
+
+Honk!

@@ -1,0 +1,194 @@
+
+Initialized planner for level: Button Rescue.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button south; a wall to the east; goose_2 far to the east; the goal south-east; a closed door far south-east.
+
+Turn 0. Planner notes: goose_2 is separated from the goal by a closed door. goose_1 must stand on the button to the south to open the door, allowing goose_2 to pass through. Once goose_2 has reached the goal, goose_1 will then proceed to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a closed door two squares to the south-west; a wall one square to the west; the goal is three squares south and two squares west.
+
+Turn 0. Planner notes: goose_2 is separated from the goal by a closed door. goose_1 must stand on the button to the south to open the door, allowing goose_2 to pass through and reach the goal. Once goose_2 has passed the door, goose_1 will then proceed to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south and one square east.
+
+Turn 1. Planner notes: goose_2 is separated from the goal by a closed door. goose_1 must stand on the button to the south to open the door for goose_2. Once goose_2 has passed through the door and can reach the goal, goose_1 will then move to the goal as well.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: an open door two squares south; goose_1 two squares to the west; the goal three squares south and two squares west.
+
+Turn 1. Planner notes: goose_2 has successfully passed through the door. goose_1 must now leave the button and navigate directly to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Turn 2. Planner notes: goose_2 is separated from the goal by a door. goose_1 needs to stand on the button (two squares north of its current position) to keep the door open so that goose_2 can reach the goal. Once goose_2 passes the door and reaches the goal, goose_1 will then navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: goose_1 is two squares west and one square south; a button is two squares west; the goal is two squares south and two squares west; a closed door is one square south and two squares east.
+
+Turn 2. Planner notes: goose_2 is separated from the goal by a closed door. goose_1 must first move to the button (two squares north of its current position) to open the door. Once goose_1 is holding the button, goose_2 will navigate through the door to the goal. After goose_2 reaches the goal, goose_1 will then move to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; another goose (Y) four squares to the east; an open door two squares south and three squares east; the goal two squares south.
+
+Turn 3. Planner notes: goose_2 is separated from the goal by a closed door. I need goose_1 to stand on the button (located north of goose_1) to open the door so that goose_2 can pass through it. Once goose_2 has passed the door and is on the path to the goal, goose_1 can then navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: an open door south-west; goose_1 is two squares to the west; the goal is south-south-west; walls are located to the west and north-west.
+
+Turn 3. Planner notes: "goose_1 is currently standing on the button to keep the door open for goose_2. goose_2 has successfully passed through the open door and is now on the path to the goal. goose_1 must now move from the button and navigate directly to the goal."
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; a wall three squares to the east; the goal one square south and one square east; goose_2 three squares north-east; a closed door four squares to the east.
+
+Turn 4. Planner notes: goose_2 is separated from the goal by a door. I need to coordinate goose_1 to stand on the button to open the door for goose_2. Currently, goose_1 is near the button and the goal, while goose_2 is positioned to pass through the door once it is open. Once goose_2 passes the door and reaches the goal, goose_1 will then move to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: goose_1 is two squares to the west; a button is two squares to the west; a closed door is one square to the south and one square to the east; the goal is two squares to the south and two squares to the west.
+
+Turn 4. Planner notes: goose_2 is separated from the goal by a closed door. I need to lead goose_1 to the button (located two squares north of its current position) to open the door so that goose_2 can pass through. Once goose_2 has passed the door and reached the goal, goose_1 will then move to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; goose_2 four squares to the east; an open door south-east; the goal two squares south.
+
+Turn 5. Planner notes: goose_2 is separate from the goal by a closed door. I need to keep goose_1 on the button to the north so that goose_2 can pass through the door and reach the goal. Once goose_2 has passed the door, goose_1 will then move to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: an open door south-west; goose_1 is several squares to the west; the goal is south-west of the open door.
+
+Turn 5. Planner notes: goose_2 has successfully passed the door. goose_1 must now ignore the button and navigate directly to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Turn 6. Planner notes: goose_2 is separate from the goal by a door. I need to keep goose_1 on the button so that goose_2 can pass through the door and reach the goal. Once goose_2 is through the door, goose_1 must then navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: goose_1 is three squares west and one square south; a button is three squares west; a closed door is one square south and one square east; the goal is two squares south and three squares west.
+
+Turn 6. Planner notes: goose_2 is separate from the goal by a closed door. I need to move goose_1 to the button two squares to its north and have it stay there to keep the door open so that goose_2 can pass through. Once goose_2 reaches the goal and honks, goose_1 must then navigate to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south; goose_2 is four squares to the east; an open door is one square south and four squares east.
+
+Turn 7. Planner notes: goose_2 is separated from the goal by a door. I need goose_1 to stand on the button to keep the door open for goose_2. Once goose_2 passes through the door and reaches the goal, goose_1 will then navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: goose_1 is far to the west; an open door is one square south and one square west; the goal is two squares south and three squares west.
+
+Turn 7. Planner notes: "goose_1 is currently positioned to open the door for goose_2. The door is now open. goose_2 must now pass through the open door and navigate to the goal. Once goose_2 reaches the goal, goose_1 will leave the button and proceed to the goal."
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Turn 8. Planner notes: goose_2 is separate from the goal by a door. I need to keep goose_1 on the button so that goose_2 can pass through the door and reach the goal. Currently, goose_1 is near the button and goose_2 is near the door. Once goose_2 has successfully passed the door, goose_1 will then move to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: goose_1 is three squares to the west; a button is three squares to the west; a closed door is one square to the south-west; a wall is one square to the south-west; the goal is two squares south and three squares west.
+
+Turn 8. Planner notes: goose_2 is separate from the goal by a door. I need to keep goose_1 on the button (located north of its current position) to keep the door open so that goose_2 can pass through and reach the goal. Once goose_2 has successfully passed the door, goose_1 will move to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares south; goose_2 is four squares to the east; an open door is one square south and three squares east.
+
+Turn 9. Planner notes: goose_2 is separated from the goal by a door. goose_1 is located near a button. I need to keep goose_1 on the button to open the door so that goose_2 can pass through and reach the goal. Once goose_2 has passed the door, both geese will navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: goose_1 is two squares to the west; an open door is one square south and one square west; the goal is two squares south and two squares west; there are walls to the north-west and south-west.
+
+Turn 9. Planner notes: goose_1 is currently holding the button, which has opened the door. goose_2 is near the open door and needs to pass through it to reach the goal. Once goose_2 has passed the door, goose_1 will also move to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north; the goal is one square south and one square east; goose_2 is three squares to the east and one square north; a closed door is four squares to the east.
+
+Turn 10. Planner notes: goose_2 is currently separated from the goal by a door. I need to keep goose_1 on the button to keep the door open for goose_2. Once goose_2 has passed through the door and can reach the goal, goose_1 will then navigate to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: goose_1 is two squares west and one square south; a button is two squares west; a closed door is one square south and one square east; the goal is two squares south and two squares west.
+
+Turn 10. Planner notes: goose_2 is separated from the goal by a closed door. I need to move goose_1 to the button (two squares north of its current position) to open the door. Once goose_2 passes through the door and reaches the goal, goose_1 will then navigate to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; goose_2 four squares to the east; the goal two squares south.
+
+Turn 11. Planner notes: goose_2 is separate from the goal by a closed door. goose_1 must stand on the button to open the door so that goose_2 can pass through. I need to coordinate goose_1 to reach and hold the button while goose_2 navigates to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: an open door two squares to the south-west; the goal is three squares south and two squares west; goose_1 is three squares to the west.
+
+Turn 11. Planner notes: goose_1 is currently holding the button, which has opened the door for goose_2. goose_2 has successfully passed through the door and is now navigating toward the goal. Once goose_2 reaches the goal, goose_1 must leave the button and proceed to the goal as well.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: a button two squares to the north-west; the goal is one square south and one square east; a closed door is three squares to the east; goose_2 is one square north and three squares east.
+
+Turn 12. Planner notes: goose_1 is currently near the goal but goose_2 is separated from it by a door. I need goose_1 to stand on the button to keep the door open so that goose_2 can reach the goal. Once goose_2 has passed through the door, goose_1 should then move to the goal.
+
+Calling goose_2.
+
+goose_2 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: wall. Also visible: goose_1 is two squares to the west and one square south; a button is two squares to the west; a closed door is one square south and one square east; the goal is two squares south and two squares west.
+
+Turn 12. Planner notes: goose_2 is separated from the goal by a closed door. I need goose_1 to stand on the button (located north-west of its current position) to open the door so that goose_2 can pass through. Once goose_2 reaches the goal, goose_1 will then move to the goal.
+
+Planner step executed.
+
+Calling goose_1.
+
+goose_1 result: I am standing on an ordinary square. Immediately north: empty. Immediately south: empty. Immediately east: empty. Immediately west: empty. Also visible: a wall three squares to the east; the goal is two squares to the south; goose_2 is four squares to the east.
+
+Turn 13. Planner notes: goose_2 is separate from the goal by a closed door. goose_1 must stand on the button (two squares north-west of its starting position) to keep the door open for goose_2. Once goose_2 passes through the door and reaches the goal, goose_1 will follow.
+
+Calling goose_2.
