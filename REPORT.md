@@ -4,17 +4,19 @@
 
 Our task is to coordinate the geese. Gemma is not very good at spatial thinking with limited information, so we have to be mindful about how the responsibilities are split between the planner and the geese.
 
-The overall approach in this implementation is the following: the planner tries to issue **high-level** tasks (find and press the button, go to the goal), but the **immediate** reasoning (how to move towards the button? how to go through that door?) is delegate to the goose.
+The overall approach in this implementation is the following: the planner tries to issue **high-level** tasks (find and press the button, go to the goal), but the **immediate** reasoning (how to move towards the button? how to go through that door?) is delegated to the goose.
 
 This solution makes use of the new API which separates *system prompt* and *user prompt*. The system prompt is used for general information (such as map legend), while the user prompt describes the current game state.
 
-This solution also makes user of **memory** - recent commands as well as the current game status created by the planner itself and included into the next call of the planner loop. This ensures consistency in long-term task execution.
+This solution also makes use of **planner memory** - recent goose reports and a running game status note created by the planner itself and included into the next planner call. This ensures consistency in long-term task execution.
+
+In hard mode, each goose only observes a partial view of the map. To reconstruct a fuller picture, we introduce a **map composer**: after each goose move, the goose's raw observation is passed to a separate LLM call that merges it into a running combined map, replacing unknown cells (`?`) with newly observed values while preserving previously known static elements. The combined map is passed to the planner on every turn, allowing it to reason about the full layout as it is gradually revealed.
 
 ## Problems encountered
 
 ### Misreading the coordinates
 
-The goose reads the absolute coordinates and misinterprets it, assuming (x, y) format.
+The goose reads the absolute coordinates and misinterprets them, assuming (x, y) format.
 
 **Solution:**
 
@@ -31,13 +33,13 @@ Planner frequently gets confused which goose it is currently commanding.
 
 ### Forgetting the goal
 
-Sometimes planner sees the door is closed and commands a goose to stay on the button, even if the other goose has already passed through the door and there is no longer any need in doing that.
+Sometimes the planner sees the door is closed and commands a goose to stay on the button, even if the other goose has already passed through the door and there is no longer any need to do that.
 
 **Solution:**
 
 * Provide a detailed description of the game and the game rules. Describe the general mechanics (buttons open doors) without any level-specific guidance.
 * Let the planner fill out its own memory to keep track of current tasks.
-* Include example memory commands that handle door-button interactions.
+* Include example memory entries that handle door-button interactions.
 
 ### Wandering off
 
@@ -46,17 +48,18 @@ The geese frequently wander off the button or the goal, even if the planner requ
 **Solution:**
 
 * Explicitly mention in system and user prompts for the goose that HONK command can be used for waiting or staying in place, and in fact should be used for that exact purpose.
+* Short-circuit the LLM move call entirely when the planner instruction contains a hold keyword (honk, wait, stay, hold, remain); execute the honk directly without asking the model.
 
-### Confusing coordinates
+### Misreporting immediate surroundings
 
-The goose misreports its immediate surroundings (e.g. reporting empty space where there is a button).
+Free-form natural language goose observations (e.g. "there is a button to the north-east") introduced spatial errors - the model would describe diagonal positions incorrectly or conflate adjacency with distance.
 
-Solution:
+**Solution:**
 
-* Memory feature was out of sync, resulting in confusing commands; refactored to relay the most recent observation reliably.
-* Discourage passing absolutely coordinates and encourage egocentric bearing.
+* Replace free-form observation reports with a tightly structured single-line format: `standing_on=[goal/square] North=[symbol] South=[symbol] West=[symbol] East=[symbol]`. This limits the model's task to reading four adjacent symbols, which is reliable at this scale.
+* Apply **chain-of-thought prompting** across all LLM calls: the model is instructed to reason step by step, then end its response with a single line in a fixed format. Only the last line is parsed as the final answer, leaving reasoning free while keeping the extractable output unambiguous.
 
 ## Technical problems encountered
 
-* Gemma has somewhat strict per-minute limit, which gets spent almost immediately, resulting in `UsageLimitError`. **Solution**: introduce a helper function that can handle retries automatically.
-* Logging as hard to keep track of and compare against each other. **Solution**: introduce turn counters.
+* Gemma has a strict per-minute rate limit, which gets spent almost immediately, resulting in `RateLimitError`. **Solution**: introduce a helper function that catches the exception and retries after a cooldown.
+* Logs were hard to keep track of and compare across agents. **Solution**: introduce turn counters.
