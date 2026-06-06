@@ -1,3 +1,5 @@
+Repository: https://github.com/quantumFeline/nlp-multiagent-homework-goose
+
 # Goose game
 
 ## General design

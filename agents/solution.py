@@ -14,7 +14,12 @@ PLANNER_MAP_LEGEND = "# wall  . empty  * goal  B button  D closed door  O open d
 SYMBOL_TO_NAME = {
     "=#": "=wall", "=.": "=empty", "=*": "=goal",
     "=@": "=button", "=$": "=closed_door", "=/": "=open_door",
-    "=?": "=unknown", "=X": "=goose_1", "=Y": "=goose_2",
+    "=?": "=not yet seen", "=X": "=goose_1", "=Y": "=goose_2",
+}
+
+OTHER_GOOSE = {
+    "goose_1": "goose_2",
+    "goose_2": "goose_1",
 }
 
 def expand_report(report: str) -> str:
@@ -28,137 +33,162 @@ def expand_map(grid: str) -> str:
     """Replace confusable map symbols with distinct single characters for the planner."""
     return grid.replace("@", "B").replace("$", "D").replace("/", "O")
 
-PLANNER_SYSTEM_PROMPT = ("You are a PLANNER in a GOOSE GAME.\n"
-                         "The game is a puzzle where both geese need to reach the goal. However, they might have to solve intermediate tasks in order to achieve that.\n"
-                         "Your task so to coordinate the geese so that both of them reach the goal marked with * and honk when standing on it.\n"
-                         "Each game turn, a goose is provides you with what it sees and asks you where to move. Your task is to provide it with its next action.\n"
-                         "Remember that a goose may only have partial information about the game state and does not have memory. You have memory and need to "
-                         "use it for long-term planning.\n"
-                         "Once a goose reports reaching the goal, instruct it to HONK and stay put.\n\n"
-                         "The game has the following types of objects:\n"
-                         "goose_1 and goose_2 that you control;\n"
-                         "goal - a special square that both geese need to reach;\n"
-                         "doors - they are impassable when closed, possible to go through when open; a button opens a door;\n"
-                         "buttons - they can be pressed by standing on them, however, not every button is connected to a door, and some of them might do nothing;\n"
-                         "walls - they are impassable.\n\n"
-                         "Pro tip: sometimes geese may need help from each other, for example, by opening doors for each other. "
-                         "In this case, one goose should help the other, provided there is a closed door between the other goose and its next destination. "
-                         "Once the other goose has passed through the door, the first one should no longer hold a button and instead "
-                         "focus on pursuing the goal themselves.\n"
-                         "Remember that a goose cannot hold the door for itself.\n"
-                         "You may also meet more complex situations, such as multiple buttons or multiple doors. Always keep track of what has been achieved so far.\n"
-                         "If a goose is blocked by a closed door, instruct it to HONK and wait. Send the other goose to press buttons one by one until the door opens, tracking which buttons have been tried.\n\n")
+# No args
+PLANNER_SYSTEM_PROMPT = ("You are playing the GOOSE game. The goal of the game is to get all GEESE to the GOAL and have them HONK while standing on their GOAL.\n"
+                         "Your role is PLANNER.\n"
+                         "PLANNER has two modes: THINK and COMMAND.\n"
+                         "When in COMMAND mode, you give orders to the GOOSE plays so that they can solve a task.\n"
+                         "When in THINK mode, you must make notes for the future PLANNER so that it knows how to command in the next round.\n")
 
-PLANNER_THINK_PROMPT = (
-    "Previous goose reports:\n{}\n"
-    "Previous planner notes:\n{}\n"
-    "Level goal: {}\n"
-    "Combined map (? = not yet seen):\n{}\n"
-    "Map legend: " + PLANNER_MAP_LEGEND
-    + "Goal reachability: goose_1 is {}, goose_2 is {}.\n"
-    "(CLEAR = unobstructed path; BLOCKED = closed door on every path; UNKNOWN = unobserved cells blocking view)\n"
-    "If a goose just became CLEAR that was previously BLOCKED, the door opened - update the plan accordingly.\n"
-    "Think step by step, then end with a single line:\n"
-    "NOTES: <one sentence summarising current game state and plan for both geese>\n"
-    "Example endings:\n"
-    "NOTES: goose_1 is holding the button at (5,0) but the door has not opened; will try the button at (3,0) next.\n"
-    "NOTES: door opened - both geese are now CLEAR and should head directly to the goal.\n"
-    "NOTES: goose_2 has passed through the door; goose_1 must leave the button and navigate to the goal.\n"
-)
+PLANNER_THINK_PROMPT_GOOSE_1 = ("You are currently in THINK mode. Your task is to pass your knowledge to the next round.\n"
+                        "Your previous notes were:\n"
+                        "{}\n"
+                        "The current state of the game map is:\n"
+                        "{}\n"
+                        "Map legend: " + PLANNER_MAP_LEGEND + "\n"
+                        "The task for this map is:\n"
+                        "{}\n"
+                        "The last report from goose_1 is: {}\n"
+                        "The goose_1 coordinates are: x={}, y={}\n"
+                        "The path towards the goal for goose_1 is {}. It was previously {}.\n"
+                        "Your notes should reflect it if anything of the following has happened:\n"
+                        "- goose_1 has stepped on the goal;\n"
+                        "- goose_1 has stepped on the button (include button coordinates);\n"
+                        "- goose_1 is holding the button (include button coordinates);\n"
+                        "- goose_1 has stepped on the open door;\n"
+                        "- a previously BLOCKED path has just become CLEAR;\n"
+                        "- a previously CLEAR path has just become BLOCKED.\n"
+                        "If none of the above happened, the note must be empty.\n")
+# previous notes, state map, task, last report, coordinate_x, coordinate_y, clear? prev clear?
 
-PLANNER_PROMPT = (
-    "Planner notes:\n{}\n"
-    "Level goal: {}\n"
-    "Combined map (? = not yet seen):\n{}\n"
-    "Map legend: " + PLANNER_MAP_LEGEND
-    + "GOOSE {} is at row {}, col {}; its immediate surroundings are: {}\n"
-    "Reason over the map to locate this goose's next target, then translate the plan "
-    "into a concrete move for where it currently stands.\n"
-    "One sentence, relative directions only, no coordinates.\n"
-    "Example instructions: Press the button north of you. / Stay on the button. / "
-    "Find and reach the goal. / Honk and wait. / Go through the open door to the west.\n"
-    "End with: INSTRUCTION: <your instruction>\n"
-)
+PLANNER_THINK_PROMPT_GOOSE_2 = ("You are currently in THINK mode. Your task is to pass your knowledge to the next round.\n"
+                        "Your previous notes were:\n"
+                        "{}\n"
+                        "The current state of the game map is:\n"
+                        "{}\n"
+                        "Map legend: " + PLANNER_MAP_LEGEND + "\n"
+                        "The task for this map is:\n"
+                        "{}\n"
+                        "The last report from goose_1 is: {}\n"
+                        "The goose_2 coordinates are: {}\n"
+                        "The path towards the goal for goose_2 is {}. It was previously {}.\n"
+                        "Your notes should reflect it if anything of the following has happened:\n"
+                        "- goose_2 has stepped on the goal;\n"
+                        "- goose_2 has stepped on the button (include button coordinates);\n"
+                        "- goose_2 is holding the button (include button coordinates);\n"
+                        "- goose_2 has stepped on the open door;\n"
+                        "- a previously BLOCKED path has just become CLEAR;\n"
+                        "- a previously CLEAR path has just become BLOCKED.\n"
+                        "If none of the above happened, the note must be empty.\n")
+# previous notes, state map, task, last report, coordinate_x, coordinate_y, clear?, prev clear?
 
-GOOSE_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. Your task is to obey the PLANNER commands.\n"
-                       "Based on the planner message, you need to figure out how to move towards the indicated position "
-                       "(or how to stay in place if you are already where you should be).\n"
-                       "The commands are high-level, and may require multiple moves. You need to figure out your next move only.\n"
-                       "The move may be UP (north), DOWN (south), LEFT (west), RIGHT (east), or HONK (stay).\n"
-                       "HONK is the move you should use if you want to do nothing. It is analogous to \"stay\", \"wait\", or \"hold\".\n"
-                       "It is also the command both geese need to execute to successfully finish the game.\n"
-                       "Map legend: " + MAP_LEGEND
-                       + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
-                       + "The coordinates must be read as (row, col), i.e. (y, x).\n"
-                       + "Cells beyond the map boundary are walls (#).\n"
-                       + "Reason about positions only relative to yourself (compass directions and distances in squares). "
-                         "Do not use numeric coordinates.\n")
-GOOSE_PROMPT = ("The game state you are currently observing is the following:\n"
+PLANNER_PROMPT_GOOSE_1 = ("You are currently in COMMAND mode. Your task is to give a COMMAND to goose_1 located at x={}, y={}.\n"
+                  "The current known map is:\n"
+                  "{}"
+                  "Map legend: " + PLANNER_MAP_LEGEND + "\n"
+                  "The path towards the goal for goose_1 is {}.\n"
+                  "The path towards the goal for goose_2 is {}.\n"
+                  "There are following cases:\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2, goose_1 is holding the button, and goose_2 has not yet gone through the door, you must command it to wait.\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2, goose_1 is holding the button, and goose_2 has already gone through the door, you must command it to proceed towards the goal.\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2 and goose_1 is not holding the button, you must command goose_1 to proceed towards the goal.\n"
+                  "- If the path is BLOCKED for goose_1 but CLEAR for goose_2, you must command goose_1 to wait.\n"
+                  "- If the path is CLEAR for goose_1 but BLOCKED for goose_2, you must command goose_1 to press a button that has not yet been pressed.\n"
+                  "- If the path is BLOCKED for goose_1 and BLOCKED for goose_2 and goose_1 sees a button that has not yet been pressed, you must command it to press the button.\n"
+                  "- If the path is BLOCKED for goose_1 and BLOCKED for goose_2 and goose_1 does not see a button that has not yet been pressed, you must command it to wait.\n"
+                  "Think step-by step, then provide the answer. The last line should be a single sentence that is a command to goose_1.")
+# x, y, map, goose 1 clear?, goose 2 clear?
+
+PLANNER_PROMPT_GOOSE_2 = ("You are currently in COMMAND mode. Your task is to give a COMMAND to goose_2 located at x={}, y={}.\n"
+                  "The current known map is:\n"
+                  "{}"
+                  "Map legend: " + PLANNER_MAP_LEGEND + "\n"
+                  "The path towards the goal for goose_1 is {}.\n"
+                  "The path towards the goal for goose_2 is {}.\n"
+                  "There are following cases:\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2, goose_2 is holding the button, and goose_1 has not yet gone through the door, you must command it to wait.\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2, goose_2 is holding the button, and goose_1 has already gone through the door, you must command it to proceed towards the goal.\n"
+                  "- If the path is CLEAR for both goose_1 and goose_2 and goose_2 is not holding the button, you must command goose_2 to proceed towards the goal.\n"
+                  "- If the path is BLOCKED for goose_2 but CLEAR for goose_1, you must command goose_2 to wait.\n"
+                  "- If the path is CLEAR for goose_2 but BLOCKED for goose_1, you must command goose_2 to press a button that has not yet been pressed.\n"
+                  "- If the path is BLOCKED for goose_2 and BLOCKED for goose_1 and goose_2 sees a button that has not yet been pressed, you must command it to press the button.\n"
+                  "- If the path is BLOCKED for goose_2 and BLOCKED for goose_1 and goose_2 does not see a button that has not yet been pressed, you must command it to wait.\n"
+                  "Think step-by step, then provide the answer. The last line should be a single sentence that is a command to {}.")
+# x, y, map, goose 1 clear?, goose 2 clear?
+
+# GOOSE_SYSTEM_PROMPT.format(self._env.goose_id)
+GOOSE_SYSTEM_PROMPT = ("You are playing the GOOSE game. The goal of the game is to get all GEESE to the GOAL and have them HONK while standing on their GOAL.\n"
+                         "Your role is GOOSE. Your ID is {}.\n"
+                         "GOOSE has two modes: OBSERVE and MOVE.\n"
+                         "When in OBSERVE mode, you pass useful information to the PLANNER.\n"
+                         "When in MOVE mode, you navigate a move in accordance to the plan given to you by the PLANNER.\n")
+# goose id
+
+GOOSE_PROMPT = ("You are currently in MOVE mode. Your task is to provide the next MOVE. It can be UP, DOWN, LEFT, RIGHT, or HONK.\n"
+                "You HONK if you received a command to stay in place, hold, or wait.\n"
+                "The current known map is:\n"
+                "{}"
+                "Map legend: " + PLANNER_MAP_LEGEND + "\n"
+                "Your current instruction is:\n"
                 "{}\n"
-                "You are at row {}, col {}.\n"
-                "You receive a message from the PLANNER that tells you that your next goal is the following:\n"
-                "{}\n"
-                "If the map shows * at your current position (i.e., you cannot see your own X/Y symbol), you are standing on the goal. "
-                "Your correct action is to HONK.\n"
-                "HONK is also the move you should use if you want to do nothing. It is analogous to \"stay\", \"wait\", or \"hold\".\n"
-                "Think step by step about your position, the planner's goal, and what move brings you closer to it. "
-                "End your response with a single line containing only your final move: UP, DOWN, LEFT, RIGHT, or HONK.\n")
+                "- If you are instructed to press the button, you must navigate towards the button using UP, LEFT, RIGHT, or DOWN.\n"
+                "- If you are instructed to proceed towards the goal, you must navigate towards the goal using UP, LEFT, RIGHT, or DOWN.\n"
+                "- If you are instructed to wait, you must HONK.\n"
+                "Think step-by-step, then output one move. It must be UP, LEFT, RIGHT, DOWN, or HONK.\n")
+# map, instruction
 
-GOOSE_OBS_SYSTEM_PROMPT = ("You are GOOSE {} in a GOOSE game. You perceive and pass useful information to the planner.\n"
-                           "Map legend: " + MAP_LEGEND
-                           + "Note: * is also shown when YOU are standing on the goal (your own marker is hidden).\n"
-                           + "Cells beyond the map boundary are walls (#). Treat them as # without further comment.\n")
-GOOSE_OBS_PROMPT = ("The current game state that you see is the following:\n"
-                    "{}\n"
-                    "You are at row {}, col {}. "
-                    "Read the symbol in each directly adjacent cell.\n"
-                    "End your response with a single line in this exact format:\n"
-                    "standing_on=[symbol] North=[symbol] South=[symbol] West=[symbol] East=[symbol]\n"
-                    "Example last line: standing_on=. North=. South=@ West=# East=.\n"
-                    "Example last line: standing_on=* North=. South=# West=. East=.\n")
+# GOOSE_OBS_PROMPT.format(self._env.describe_state(), pos[0], pos[1]))
+GOOSE_OBS_PROMPT = ("You are currently in OBSERVE mode. Your task is to provide the PLANNER with the key information.\n"
+                           "The current known map is:\n"
+                           "{}"
+                           "Map legend: " + PLANNER_MAP_LEGEND +
+                           "Your last move was {}.\n"
+                           "Think step-by step, then provide the answer. The last line of your response should be in the following format:\n"
+                           "LEFT of me is [symbol], RIGHT is [symbol], UP is [symbol], DOWN is [symbol]. My last move was [move].\n"
+                           "For example:\n"
+                           "\"LEFT of me is WALL, RIGHT is EMPTY, UP is BUTTON, DOWN is EMPTY. My last move was UP.\""
+                           "\"LEFT of me is EMPTY, RIGHT is GOAL, UP is {}, DOWN is WALL. My last move was HONK.\"")
+# map, last move, other goose id
 
-MAP_COMPOSER_SYSTEM_PROMPT = (
-    "You are a map merger for a grid-based game. "
+MAP_COMPOSER_SYSTEM_PROMPT = ("You are a MAP COMPOSER.\n"
+                              "Your task is to merge maps for a grid-based game.\n"
     "You receive a combined map built so far and a new partial observation, and output an updated combined map.\n"
-    "Map symbols: " + MAP_LEGEND
-    + "Merging rules:\n"
+    "Map symbols: " + MAP_LEGEND +
+    "Merging rules:\n"
     "- ? means the cell was not yet observed. Replace ? with the new observation's value if it is known there.\n"
     "- Static elements (#, ., *, @, $, /) once known never revert to ?. Keep them from the combined map even "
     "if the new observation shows ? there.\n"
-    "- Goose positions (X, Y) are dynamic. Always take them from the new observation, not the old combined map.\n"
+    "- Goose positions (X, Y) are dynamic. Always take them from the new observation.\n"
     "- If a cell is known in both maps and they disagree on a static element, trust the new observation "
     "(doors can open or close).\n"
-    "Output ONLY the updated grid, row by row, with no extra text, explanation, or blank lines.\n"
+    "Output only the updated grid, row by row, with no extra text, explanation, or blank lines.\n"
 )
 
-MAP_COMPOSER_FIRST_PROMPT = (
-    "This is the first observation. Output it as-is as the initial combined map.\n"
-    "Observation:\n{}\n"
-    "Output ONLY the grid."
-)
-
+# prompt = MAP_COMPOSER_MERGE_PROMPT.format(self._combined_map, goose_id, raw_observation)
 MAP_COMPOSER_MERGE_PROMPT = (
     "Current combined map:\n{}\n\n"
     "New observation from {}:\n{}\n\n"
-    "Output the updated combined map. ONLY the grid, no other text."
+    "Output the updated combined map.\n"
 )
 
-
-GOAL_ESTIMATOR_SYSTEM_PROMPT = (
-    "You are analyzing a game map to determine if a goose can reach the goal.\n"
+GOAL_ESTIMATOR_SYSTEM_PROMPT = ("You are a GOAL ESTIMATOR for a grid-based game.\n"
+    "You are analyzing a game map to determine if a a given GOOSE can reach the goal.\n"
     "Map symbols: " + MAP_LEGEND +
     "A goose is CLEAR if there is at least one path to the goal with no closed doors ($) or walls (#).\n"
     "A goose is BLOCKED if there is a closed door ($) or wall (#) on every path between it and the goal (*).\n"
     "A goose is UNKNOWN if it is not CLEAR and there are unobserved cells (?) between it and the goal that may or may not contain obstacles.\n"
-    "Think step by step, then end your response with exactly one word on its own line: CLEAR, BLOCKED, or UNKNOWN.\n"
+    "Your task is to determine whether there exists a path from the goose to the goal."
 )
 
+# GOAL_ESTIMATOR_PROMPT.format(combined_map, goose_id, row, col, goose_id)
 GOAL_ESTIMATOR_PROMPT = (
-    "Combined map:\n{}\n"
-    "{} is at row {}, col {}.\n"
+    "Combined map:\n"
+    "{}\n"
+    "{} is at x={}, y={}.\n"
     "Can {} reach the goal (*)?\n"
-    "Think step by step, then end with CLEAR, BLOCKED, or UNKNOWN."
-)
+    "Think step-by-step, then output one work. It must be CLEAR, BLOCKED, or UNKNOWN.")
+# map, goose id, x, y, goose id
+
 
 
 class GoalEstimator:
@@ -193,7 +223,7 @@ class MapComposer:
     def update(self, goose_id: str, raw_observation: str) -> None:
         """Merge a new goose observation into the combined map."""
         if self._combined_map is None:
-            prompt = MAP_COMPOSER_FIRST_PROMPT.format(raw_observation)
+            prompt = raw_observation
         else:
             prompt = MAP_COMPOSER_MERGE_PROMPT.format(self._combined_map, goose_id, raw_observation)
         self._combined_map = get_model_answer(
@@ -240,31 +270,36 @@ class GooseAgentImpl(GooseAgent):
         #event = self._env.honk(count=1)
 
         HOLD_KEYWORDS = ("honk", "wait", "stay", "hold", "remain", "stand", "do nothing")
+        last_move = "HONK"
         if any(k in message.description.lower() for k in HOLD_KEYWORDS):
             self._env.honk(1)
         else:
             for attempt in range(3):
-                pos = self._env.visible_goose_positions().get(self._env.goose_id, (-1, -1))
                 answer = get_model_answer(self._client,
                                           self._used_model,
                                           GOOSE_SYSTEM_PROMPT.format(self._env.goose_id),
-                                          GOOSE_PROMPT.format(self._env.describe_state(), pos[0], pos[1], message.description))
+                                          GOOSE_PROMPT.format(self._env.describe_state(), message.description))
                 self._append_to_chat("Goose move: " + answer)
                 last = answer.strip().split('\n')[-1].strip().lower()
                 if last == "up":
                     self._env.move(Direction.UP)
+                    last_move = "UP"
                     break
                 elif last == "down":
                     self._env.move(Direction.DOWN)
+                    last_move = "DOWN"
                     break
                 elif last == "left":
                     self._env.move(Direction.LEFT)
+                    last_move = "LEFT"
                     break
                 elif last == "right":
                     self._env.move(Direction.RIGHT)
+                    last_move = "RIGHT"
                     break
                 elif last == "honk":
                     self._env.honk(1)
+                    last_move = "HONK"
                     break
                 elif attempt == 2:
                     raise RuntimeError("Bad Gemma")
@@ -272,11 +307,10 @@ class GooseAgentImpl(GooseAgent):
         if self.map_composer is not None:
             self.map_composer.update(self._env.goose_id, self._env.describe_state())
 
-        pos = self._env.visible_goose_positions().get(self._env.goose_id, (-1, -1))
         goose_report = get_model_answer(self._client,
                                         self._used_model,
-                                        GOOSE_OBS_SYSTEM_PROMPT.format(self._env.goose_id),
-                                        GOOSE_OBS_PROMPT.format(self._env.describe_state(), pos[0], pos[1]))
+                                        GOOSE_SYSTEM_PROMPT.format(self._env.goose_id),
+                                        GOOSE_OBS_PROMPT.format(self._env.describe_state(), last_move, OTHER_GOOSE[self._env.goose_id]))
 
         self._append_to_chat(f"Turn {self.turn_counter}. GooseAgent answer: {goose_report}")
         self.turn_counter += 1
@@ -301,6 +335,9 @@ class PlannerAgentImpl(PlannerAgent):
         self._last_reports: dict[str, str] = {
             gid: "No reports yet." for gid in self._agents
         }
+        self._prev_estimates: dict[str, str] = {
+            gid: "UNKNOWN" for gid in self._agents
+        }
         self.turn_counter = 0
         self._append_to_chat(f"Initialized planner for level: {env.level_name}.")
         self._planner_notes = "No planner message yet."
@@ -309,42 +346,61 @@ class PlannerAgentImpl(PlannerAgent):
         self._append_to_chat("Planner step executed.")
         combined_map = self._map_composer.get() or "No map yet."
         self._append_to_chat(f"Combined map:\n{combined_map}")
+        positions = {
+            gid: self._agents[gid]._env.visible_goose_positions().get(gid)
+            for gid in sorted(self._agents)
+        }
         estimates = {
-            gid: self._goal_estimator.estimate(
-                gid,
-                combined_map,
-                self._agents[gid]._env.visible_goose_positions().get(gid),
-            )
+            gid: self._goal_estimator.estimate(gid, combined_map, positions[gid])
             for gid in sorted(self._agents)
         }
         self._append_to_chat(f"Goal estimates: {estimates}")
+        expanded_map = expand_map(combined_map)
 
-        think = get_model_answer(self._client, self._used_model,
-                                 PLANNER_SYSTEM_PROMPT,
-                                 PLANNER_THINK_PROMPT.format(self._memory[-4:],
-                                                             self._planner_notes,
-                                                             self._env.task_description,
-                                                             expand_map(combined_map),
-                                                             estimates["goose_1"],
-                                                             estimates["goose_2"]))
-        notes_line = next((l.removeprefix("NOTES:").strip() for l in think.splitlines() if l.startswith("NOTES:")), self._planner_notes)
-        self._planner_notes = notes_line
+        g1 = positions["goose_1"] if positions["goose_1"] is not None else (-1, -1)
+        g2 = positions["goose_2"] if positions["goose_2"] is not None else (-1, -1)
+
+        think_1 = get_model_answer(self._client, self._used_model,
+                                   PLANNER_SYSTEM_PROMPT,
+                                   PLANNER_THINK_PROMPT_GOOSE_1.format(
+                                       self._planner_notes,
+                                       expanded_map,
+                                       self._env.task_description,
+                                       self._last_reports["goose_1"],
+                                       g1[0], g1[1],
+                                       estimates["goose_1"],
+                                       self._prev_estimates["goose_1"]))
+        self._planner_notes = think_1.strip() or self._planner_notes
+
+        think_2 = get_model_answer(self._client, self._used_model,
+                                   PLANNER_SYSTEM_PROMPT,
+                                   PLANNER_THINK_PROMPT_GOOSE_2.format(
+                                       self._planner_notes,
+                                       expanded_map,
+                                       self._env.task_description,
+                                       self._last_reports["goose_2"],
+                                       f"x={g2[0]}, y={g2[1]}",
+                                       estimates["goose_2"],
+                                       self._prev_estimates["goose_2"]))
+        self._planner_notes = think_2.strip() or self._planner_notes
         self._append_to_chat(f"Turn {self.turn_counter}. Planner notes: {self._planner_notes}")
 
         for goose_id, goose in sorted(self._agents.items()):
-            current_map = expand_map(self._map_composer.get() or "No map yet.")
             pos = self._agents[goose_id]._env.visible_goose_positions().get(goose_id)
             row, col = pos if pos is not None else (-1, -1)
-            answer = get_model_answer(self._client,
-                                      self._used_model,
-                                      PLANNER_SYSTEM_PROMPT,
-                                      PLANNER_PROMPT.format(self._planner_notes,
-                                                            self._env.task_description,
-                                                            current_map,
-                                                            goose_id, row, col,
-                                                            self._last_reports[goose_id],
-                                                            goose_id))
-            instruction = next((l.removeprefix("INSTRUCTION:").strip() for l in answer.splitlines() if l.startswith("INSTRUCTION:")), answer.strip().splitlines()[-1])
+            if goose_id == "goose_1":
+                user_prompt = PLANNER_PROMPT_GOOSE_1.format(
+                    row, col, expanded_map,
+                    estimates["goose_1"], estimates["goose_2"])
+            else:
+                user_prompt = PLANNER_PROMPT_GOOSE_2.format(
+                    row, col, expanded_map,
+                    estimates["goose_1"], estimates["goose_2"],
+                    goose_id)
+            answer = get_model_answer(self._client, self._used_model,
+                                      PLANNER_SYSTEM_PROMPT, user_prompt)
+            lines = [l for l in answer.strip().splitlines() if l.strip()]
+            instruction = lines[-1] if lines else answer.strip()
             self._append_to_chat(f"Planner -> {goose_id}: {instruction}")
 
             result = goose.on_call(GooseAgentMessage(description=instruction))
@@ -355,4 +411,5 @@ class PlannerAgentImpl(PlannerAgent):
                 self._append_to_chat(f"{goose_id} result: {expanded}")
                 self._memory.append((goose_id, expanded))
                 self._last_reports[goose_id] = expanded
+        self._prev_estimates = estimates
         self.turn_counter += 1
